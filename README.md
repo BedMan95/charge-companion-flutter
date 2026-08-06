@@ -8,6 +8,13 @@ An EV Charging Companion App built with Flutter. Designed to integrate with Tuya
 *   **Vehicle Management:** Support for multiple vehicles with specific battery capacities and charging limits.
 *   **Settings:** Configure API credentials and app preferences.
 
+## Development Requirements
+
+*   [Flutter SDK](https://docs.flutter.dev/get-started/install) (version 3.0.0 or higher recommended)
+*   [Dart SDK](https://dart.dev/get-dart)
+*   [Android Studio](https://developer.android.com/studio) (for Android development)
+*   **Android:** Android SDK 35 (as per `build.gradle` configuration)
+
 ## Getting Started
 
 1.  **Clone the repository:**
