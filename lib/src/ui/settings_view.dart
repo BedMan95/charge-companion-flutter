@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../api/tuya_api.dart';
 import '../providers/settings_provider.dart';
 
@@ -14,7 +15,6 @@ class SettingsView extends ConsumerStatefulWidget {
 }
 
 class _SettingsViewState extends ConsumerState<SettingsView> {
-  static const platform = MethodChannel('id.my.fornubi.chargecompanion/version');
   final _clientIdController = TextEditingController();
   final _clientSecretController = TextEditingController();
   final _deviceIdController = TextEditingController();
@@ -30,13 +30,13 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
 
   Future<void> _loadAppVersion() async {
     try {
-      final String version = await platform.invokeMethod('getAppVersion');
+      PackageInfo packageInfo = await PackageInfo.fromPlatform();
       setState(() {
-        _appVersion = version;
+        _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
       });
-    } on PlatformException catch (e) {
+    } catch (e) {
       setState(() {
-        _appVersion = "Failed to get version: '${e.message}'.";
+        _appVersion = "Failed to get version: '${e.toString()}'.";
       });
     }
   }
