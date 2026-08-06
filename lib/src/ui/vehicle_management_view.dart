@@ -211,52 +211,100 @@ class VehicleManagementView extends ConsumerWidget {
     final nameController = TextEditingController();
     final modelIdController = TextEditingController();
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0F172A), // slate-900
-        title: const Text('Tambah Kendaraan',
-            style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Nama Kendaraan',
-                labelStyle: TextStyle(color: Color(0xFF94A3B8)), // slate-400
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F172A), // slate-900
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF334155), // slate-700
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-            ),
-            TextField(
-              controller: modelIdController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Model ID (contoh: uwinfly_t3)',
-                labelStyle: TextStyle(color: Color(0xFF94A3B8)), // slate-400
+              const Text(
+                'Tambah Kendaraan',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              TextField(
+                controller: nameController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Nama Kendaraan',
+                  border: UnderlineInputBorder(),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF1E293B)),
+                  ),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
+                  ),
+                  filled: false,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: modelIdController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Model ID (contoh: uwinfly_t3)',
+                  border: UnderlineInputBorder(),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF1E293B)),
+                  ),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
+                  ),
+                  filled: false,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF059669), // emerald-600
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  if (nameController.text.isNotEmpty &&
+                      modelIdController.text.isNotEmpty) {
+                    ref
+                        .read(vehicleProvider.notifier)
+                        .addVehicle(nameController.text, modelIdController.text);
+                    Navigator.pop(context);
+                  }
+                },
+                child: const Text('Simpan',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal', style: TextStyle(color: Color(0xFF94A3B8))), // slate-400
-          ),
-          TextButton(
-            onPressed: () {
-              if (nameController.text.isNotEmpty &&
-                  modelIdController.text.isNotEmpty) {
-                ref
-                    .read(vehicleProvider.notifier)
-                    .addVehicle(nameController.text, modelIdController.text);
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Simpan',
-                style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold)), // emerald-400
-          ),
-        ],
       ),
     );
   }
@@ -279,128 +327,123 @@ class VehicleManagementView extends ConsumerWidget {
     final taperStartController = TextEditingController(
         text: vehicle.calibrationTaperStartPercent?.toString() ?? '');
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0F172A), // slate-900
-        title: const Text('Pengaturan Kendaraan',
-            style: TextStyle(color: Colors.white)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: 8.0),
-                  child: Text('Spesifikasi Dasar (Override)', style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 12)),
-                )
-              ),
-              TextField(
-                controller: voltController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Voltase Baterai (V)',
-                  labelStyle: TextStyle(color: Color(0xFF94A3B8)), // slate-400
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F172A), // slate-900
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF334155), // slate-700
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-              ),
-              TextField(
-                controller: ahController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Kapasitas (Ah)',
-                  labelStyle: TextStyle(color: Color(0xFF94A3B8)), // slate-400
+                const Text(
+                  'Pengaturan Kendaraan',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              TextField(
-                controller: efisiensiController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Efisiensi Charger (0.0 - 1.0)',
-                  labelStyle: TextStyle(color: Color(0xFF94A3B8)), // slate-400
+                const SizedBox(height: 24),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: 8.0),
+                    child: Text('Spesifikasi Dasar (Override)', style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 12)),
+                  )
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: 8.0),
-                  child: Text('Kalibrasi Waktu & Taper', style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 12)),
-                )
-              ),
-              TextField(
-                controller: usableBatteryController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Kapasitas Baterai (kWh)',
-                  labelStyle: TextStyle(color: Color(0xFF94A3B8)), // slate-400
+                _buildSheetTextField('Voltase Baterai (V)', voltController),
+                const SizedBox(height: 16),
+                _buildSheetTextField('Kapasitas (Ah)', ahController),
+                const SizedBox(height: 16),
+                _buildSheetTextField('Efisiensi Charger (0.0 - 1.0)', efisiensiController),
+                const SizedBox(height: 24),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: 12.0),
+                    child: Text('Kalibrasi Waktu & Taper', style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 12)),
+                  )
                 ),
-              ),
-              TextField(
-                controller: wallEnergyController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Kapasitas Listrik Real (kWh)',
-                  labelStyle: TextStyle(color: Color(0xFF94A3B8)), // slate-400
+                _buildSheetTextField('Kapasitas Baterai (kWh)', usableBatteryController),
+                const SizedBox(height: 16),
+                _buildSheetTextField('Kapasitas Listrik Real (kWh)', wallEnergyController),
+                const SizedBox(height: 16),
+                _buildSheetTextField('Estimasi Waktu 0-100% (Jam)', fullChargeHoursController),
+                const SizedBox(height: 16),
+                _buildSheetTextField('Taper Charger Mulai (%)', taperStartController),
+                const SizedBox(height: 32),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF059669), // emerald-600
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    ref.read(vehicleProvider.notifier).updateVehicleSettings(
+                          vehicle.id,
+                          customBatteryVolt: double.tryParse(voltController.text),
+                          customBatteryAh: double.tryParse(ahController.text),
+                          customEfisiensiCharger: double.tryParse(efisiensiController.text),
+                          usableBatteryKwh:
+                              double.tryParse(usableBatteryController.text),
+                          wallEnergyFullKwh:
+                              double.tryParse(wallEnergyController.text),
+                          fullChargeHours:
+                              double.tryParse(fullChargeHoursController.text),
+                          taperStartPercent:
+                              double.tryParse(taperStartController.text),
+                        );
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Simpan',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
-              ),
-              TextField(
-                controller: fullChargeHoursController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Estimasi Waktu 0-100% (Jam)',
-                  labelStyle: TextStyle(color: Color(0xFF94A3B8)), // slate-400
-                ),
-              ),
-              TextField(
-                controller: taperStartController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Taper Charger Mulai (%)',
-                  labelStyle: TextStyle(color: Color(0xFF94A3B8)), // slate-400
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal', style: TextStyle(color: Color(0xFF94A3B8))), // slate-400
-          ),
-          TextButton(
-            onPressed: () {
-              ref.read(vehicleProvider.notifier).updateVehicleSettings(
-                    vehicle.id,
-                    customBatteryVolt: double.tryParse(voltController.text),
-                    customBatteryAh: double.tryParse(ahController.text),
-                    customEfisiensiCharger: double.tryParse(efisiensiController.text),
-                    usableBatteryKwh:
-                        double.tryParse(usableBatteryController.text),
-                    wallEnergyFullKwh:
-                        double.tryParse(wallEnergyController.text),
-                    fullChargeHours:
-                        double.tryParse(fullChargeHoursController.text),
-                    taperStartPercent:
-                        double.tryParse(taperStartController.text),
-                  );
-              Navigator.pop(context);
-            },
-            child: const Text('Simpan',
-                style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold)), // emerald-400
-          ),
-        ],
+      ),
+    );
+  }
+
+  Widget _buildSheetTextField(String label, TextEditingController controller) {
+    return TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        border: const UnderlineInputBorder(),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFF1E293B)),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
+        ),
+        filled: false,
+        contentPadding: const EdgeInsets.symmetric(vertical: 8),
       ),
     );
   }

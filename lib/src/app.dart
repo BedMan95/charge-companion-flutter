@@ -61,7 +61,38 @@ class MyApp extends StatelessWidget {
             textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
           ),
           darkTheme: ThemeData.dark().copyWith(
+            scaffoldBackgroundColor: const Color(0xFF020617), // slate-950
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF020617),
+              elevation: 0,
+            ),
             textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: const Color(0xFF0F172A), // slate-900
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              labelStyle: const TextStyle(color: Color(0xFF94A3B8)), // slate-400
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF1E293B)), // slate-800
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF1E293B)), // slate-800
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF10B981), width: 2), // emerald-500
+              ),
+            ),
+            snackBarTheme: SnackBarThemeData(
+              backgroundColor: const Color(0xFF10B981), // emerald-500
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              contentTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+              elevation: 4,
+              insetPadding: const EdgeInsets.all(16),
+            ),
           ),
           themeMode: settingsController.themeMode,
 

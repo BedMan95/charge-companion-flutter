@@ -5,6 +5,7 @@ import '../providers/tuya_provider.dart';
 import '../providers/charging_session_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/vehicle_provider.dart';
+import '../providers/metrics_provider.dart';
 import '../utils/charging_calculator.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'vehicle_management_view.dart';
@@ -60,22 +61,7 @@ class DashboardView extends ConsumerWidget {
               });
             }
 
-            final metrics = ChargingCalculator.calculateMetrics(
-              currentPowerConsumption: sessionState.powerHistoryKw.isEmpty ? curPower : sessionState.smoothedPowerKw * 1000.0,
-              batteryCapacity: usedCapacityKwh,
-              chargingEfficiency: usedEfficiency,
-              electricityCostPerKWh: settingsState.tarifPln,
-              persenAwal: sessionState.persenAwal,
-              persenTarget: sessionState.persenTarget,
-              persenRealtime: sessionState.persenRealtime,
-              isCharging: relayStatus,
-              calibration: ChargingCalibrationProfile(
-                usableBatteryKWh: activeVehicle?.calibrationUsableBatteryKwh ?? usedCapacityKwh,
-                wallEnergyFullKWh: activeVehicle?.calibrationWallEnergyFullKwh ?? (usedCapacityKwh / usedEfficiency),
-                fullChargeHours: activeVehicle?.calibrationFullChargeHours ?? ((usedCapacityKwh / usedEfficiency) / (curPower > 0 ? curPower / 1000.0 : 1.0)),
-                taperStartPercent: activeVehicle?.calibrationTaperStartPercent ?? 80.0,
-              ),
-            );
+            final metrics = ref.watch(metricsProvider);
 
             return RefreshIndicator(
               color: const Color(0xFF10B981), // emerald-500
@@ -102,8 +88,7 @@ class DashboardView extends ConsumerWidget {
               ),
             );
           },
-          loading: () => const Center(
-              child: CircularProgressIndicator(color: Color(0xFF10B981))),
+          loading: () => _buildModernLoading(),
           error: (err, stack) => Center(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
@@ -135,6 +120,10 @@ class DashboardView extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildModernLoading() {
+    return const ModernLoadingScreen();
   }
 
   Widget _buildHeroSection(bool isCharging, WidgetRef ref, BuildContext context) {
@@ -340,125 +329,122 @@ class DashboardView extends ConsumerWidget {
     final mController = TextEditingController(text: '0');
     final sController = TextEditingController(text: '0');
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0F172A),
-        title: const Text('Mulai Pengisian', style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Baterai Saat Ini (%)', style: TextStyle(color: Color(0xFF94A3B8))),
-            const SizedBox(height: 8),
-            TextField(
-              controller: batController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color(0xFF020617),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF1E293B)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF1E293B)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF10B981)),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F172A),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF334155), // slate-700
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-            const Text('Delay Timer (Otomatis menyala setelah):', style: TextStyle(color: Color(0xFF94A3B8))),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: _buildTimerInput('Jam', hController)),
-                const SizedBox(width: 8),
-                Expanded(child: _buildTimerInput('Menit', mController)),
-                const SizedBox(width: 8),
-                Expanded(child: _buildTimerInput('Detik', sController)),
-              ],
-            ),
-          ],
+              const Text('Mulai Pengisian', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
+              const Text('Baterai Saat Ini (%)', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+              const SizedBox(height: 4),
+              TextField(
+                controller: batController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                decoration: const InputDecoration(
+                  border: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF10B981), width: 2)),
+                  filled: false,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+              const SizedBox(height: 32),
+              const Text('Delay Timer (Opsional)', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: _buildTimerInput('Jam', hController)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildTimerInput('Menit', mController)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildTimerInput('Detik', sController)),
+                ],
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    final bat = double.tryParse(batController.text) ?? 0.0;
+                    final h = int.tryParse(hController.text) ?? 0;
+                    final m = int.tryParse(mController.text) ?? 0;
+                    final s = int.tryParse(sController.text) ?? 0;
+                    final totalSeconds = (h * 3600) + (m * 60) + s;
+
+                    final sessionNotifier = ref.read(chargingSessionProvider.notifier);
+                    final tuyaNotifier = ref.read(tuyaStatusProvider.notifier);
+
+                    sessionNotifier.updatePersenAwal(bat).then((_) {
+                      if (!context.mounted) return;
+
+                      if (totalSeconds > 0) {
+                        tuyaNotifier.setCountdown(totalSeconds);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Timer diatur: $h j, $m m, $s d')),
+                        );
+                      } else {
+                        tuyaNotifier.toggleRelay(true);
+                        sessionNotifier.startSession();
+                      }
+                      Navigator.pop(context);
+                    });
+                  },
+                  child: const Text('Mulai Sekarang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal', style: TextStyle(color: Color(0xFF94A3B8))),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              final bat = double.tryParse(batController.text) ?? 0.0;
-              final h = int.tryParse(hController.text) ?? 0;
-              final m = int.tryParse(mController.text) ?? 0;
-              final s = int.tryParse(sController.text) ?? 0;
-              final totalSeconds = (h * 3600) + (m * 60) + s;
-
-              final sessionNotifier = ref.read(chargingSessionProvider.notifier);
-              final tuyaNotifier = ref.read(tuyaStatusProvider.notifier);
-
-              sessionNotifier.updatePersenAwal(bat).then((_) {
-                if (!context.mounted) return;
-
-                if (totalSeconds > 0) {
-                  tuyaNotifier.setCountdown(totalSeconds);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Timer diatur: $h j, $m m, $s d'),
-                      backgroundColor: const Color(0xFF10B981),
-                    ),
-                  );
-                } else {
-                  tuyaNotifier.toggleRelay(true);
-                  sessionNotifier.startSession();
-                }
-                Navigator.pop(context);
-              });
-            },
-            child: const Text('Mulai'),
-          ),
-        ],
       ),
     );
   }
 
   Widget _buildTimerInput(String label, TextEditingController controller) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)), // slate-500
         TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
+          textAlign: TextAlign.left,
           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: const Color(0xFF020617),
-            contentPadding: const EdgeInsets.symmetric(vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF1E293B)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF1E293B)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF10B981)),
-            ),
+          decoration: const InputDecoration(
+            border: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF10B981), width: 2)),
+            filled: false,
+            contentPadding: EdgeInsets.symmetric(vertical: 8),
           ),
         ),
       ],
@@ -742,7 +728,7 @@ class DashboardView extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Garage: Kendaraan Aktif',
+              const Text('Garasi: Kendaraan Aktif',
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 14,
@@ -760,7 +746,7 @@ class DashboardView extends ConsumerWidget {
                 onPressed: () {
                   Navigator.pushNamed(context, VehicleManagementView.routeName);
                 },
-                child: const Text('+ Tambah EV',
+                child: const Text('Garasi',
                     style:
                         TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
               ),
@@ -1009,45 +995,168 @@ class DashboardView extends ConsumerWidget {
 
   void _showEditDialog(BuildContext context, String title, String initialValue, Function(String) onSave) {
     final controller = TextEditingController(text: initialValue);
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0F172A),
-        title: Text('Edit $title', style: const TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: const Color(0xFF020617),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF1E293B)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF1E293B)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF10B981)),
-            ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F172A),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF334155),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text('Edit $title', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
+              TextField(
+                controller: controller,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                decoration: const InputDecoration(
+                  border: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF10B981), width: 2)),
+                  filled: false,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    if (controller.text.isNotEmpty) {
+                      onSave(controller.text);
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: const Text('Simpan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal', style: TextStyle(color: Color(0xFF94A3B8))),
-          ),
-          TextButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                onSave(controller.text);
-                Navigator.pop(context);
-              }
+      ),
+    );
+  }
+}
+
+class ModernLoadingScreen extends StatefulWidget {
+  const ModernLoadingScreen({super.key});
+
+  @override
+  State<ModernLoadingScreen> createState() => _ModernLoadingScreenState();
+}
+
+class _ModernLoadingScreenState extends State<ModernLoadingScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFF020617), // slate-950
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _scaleAnimation.value,
+                child: Opacity(
+                  opacity: _opacityAnimation.value,
+                  child: Container(
+                    padding: const EdgeInsets.all(28),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF10B981).withOpacity(0.1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withOpacity(0.3),
+                          blurRadius: 40,
+                          spreadRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      LucideIcons.zap,
+                      color: Color(0xFF34D399),
+                      size: 48,
+                    ),
+                  ),
+                ),
+              );
             },
-            child: const Text('Simpan', style: TextStyle(color: Color(0xFF34D399))),
+          ),
+          const SizedBox(height: 56),
+          const Text(
+            'Menghubungkan ke Garasi...',
+            style: TextStyle(
+              color: Color(0xFF94A3B8), // slate-400
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: 160,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: const LinearProgressIndicator(
+                backgroundColor: Color(0xFF0F172A), // slate-900
+                color: Color(0xFF10B981), // emerald-500
+                minHeight: 4,
+              ),
+            ),
           ),
         ],
       ),

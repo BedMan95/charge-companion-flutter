@@ -1,13 +1,14 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../api/tuya_api.dart';
+import '../db/database_helper.dart';
 
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
@@ -45,8 +46,8 @@ Future<void> initializeService() async {
       autoStart: true,
       isForegroundMode: true,
       notificationChannelId: 'my_foreground_v2',
-      initialNotificationTitle: '',
-      initialNotificationContent: '',
+      initialNotificationTitle: 'Charge Companion',
+      initialNotificationContent: 'Service berjalan di latar',
       foregroundServiceNotificationId: 888,
     ),
     iosConfiguration: IosConfiguration(
@@ -94,79 +95,167 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
   });
 
-  // Listen to ntfy.sh SSE
-  final client = http.Client();
-  final request = http.Request('GET', Uri.parse('https://notify.nusantarajaya.co.id/dk_charge_companion_app_yadea/sse'));
-  
-  try {
-    final response = await client.send(request);
-    response.stream.transform(utf8.decoder).listen((data) {
-      debugPrint('SSE Data received: $data');
-      if (data.isNotEmpty) {
-        try {
-          final lines = data.split('\n');
-          for (var line in lines) {
-            if (line.startsWith('data: ')) {
-              final jsonStr = line.substring(6);
-              final jsonData = jsonDecode(jsonStr);
-              
-              if (jsonData['event'] == 'message') {
-                List<dynamic> tags = jsonData['tags'] ?? [];
-                String emojiPrefix = '';
-                for (var tag in tags) {
-                  if (tag == 'warning') emojiPrefix += '⚠️ ';
-                  if (tag == 'skull') emojiPrefix += '💀 ';
-                  if (tag == 'battery') emojiPrefix += '🔋 ';
-                  if (tag == 'zap') emojiPrefix += '⚡ ';
-                  if (tag == 'white_check_mark') emojiPrefix += '✅ ';
-                  if (tag == 'x') emojiPrefix += '❌ ';
-                }
+  // Background charging logic loop
+  while (true) {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final startTimeMs = prefs.getInt('startTimeMs');
 
-                final title = emojiPrefix + (jsonData['title'] ?? 'New Notification');
-                final message = jsonData['message'] ?? '';
-                
-                List<AndroidNotificationAction> actions = [];
-                if (jsonData['actions'] != null) {
-                  for (var action in jsonData['actions']) {
-                    if (action['action'] == 'http') {
-                      actions.add(AndroidNotificationAction(
-                        action['id'] ?? action['label'],
-                        action['label'],
-                        showsUserInterface: true,
-                      ));
-                    }
-                  }
+      if (startTimeMs != null) {
+        // CHARGING STATE
+        final data = await TuyaApi.getDeviceStatus();
+        if (data != null && data['status'] != null) {
+          final statusList = data['status'] as List<dynamic>;
+
+          final relayStatus = statusList.firstWhere(
+              (s) => s['code'] == 'switch_1',
+              orElse: () => {'value': false})['value'] as bool;
+
+          final curPower = (statusList.firstWhere(
+                  (s) => s['code'] == 'cur_power',
+                  orElse: () => {'value': 0})['value'] as num) /
+              10.0;
+
+          if (relayStatus) {
+            final now = DateTime.now().millisecondsSinceEpoch;
+            final lastFetch = prefs.getInt('lastFetchTimeMs') ?? now;
+            final elapsedHours = (now - lastFetch) / (1000 * 3600);
+
+            if (elapsedHours > 0) {
+              final currentPowerKw = curPower / 1000.0;
+              final energyAddedKwh = currentPowerKw * elapsedHours;
+
+              final accumulated = (prefs.getDouble('accumulatedEnergyKWh') ?? 0.0) + energyAddedKwh;
+              await prefs.setDouble('accumulatedEnergyKWh', accumulated);
+              await prefs.setInt('lastFetchTimeMs', now);
+
+              // Update power history for smoothing
+              final powerHistoryStr = prefs.getString('powerHistoryKw') ?? '';
+              final historyList = powerHistoryStr.isEmpty
+                  ? <double>[]
+                  : powerHistoryStr.split(',').map((e) => double.tryParse(e) ?? 0.0).toList();
+
+              historyList.add(currentPowerKw);
+              if (historyList.length > 10) historyList.removeAt(0);
+
+              await prefs.setString('powerHistoryKw', historyList.join(','));
+              await prefs.setDouble('smoothedPowerKw',
+                historyList.isEmpty ? 0.0 : historyList.reduce((a, b) => a + b) / historyList.length);
+
+              // Calculate new percent
+              final efisiensi = prefs.getDouble('efisiensiCharger') ?? 0.82;
+
+              // We need battery capacity. Let's try to get active vehicle first.
+              double batCapacityKwh = 0.0;
+              final useRealtime = prefs.getBool('useRealtime') ?? true;
+
+              if (useRealtime) {
+                final db = await DatabaseHelper.instance.database;
+                final maps = await db.rawQuery('''
+                  SELECT uv.*, em.battery_volt, em.battery_ah, em.efisiensi_charger
+                  FROM user_vehicles uv
+                  LEFT JOIN ev_models em ON uv.ev_model_id = em.id
+                  WHERE uv.is_active = 1
+                  LIMIT 1
+                ''');
+                if (maps.isNotEmpty) {
+                  final map = maps.first;
+                  final v = (map['custom_battery_volt'] ?? map['battery_volt'] ?? 72) as num;
+                  final ah = (map['custom_battery_ah'] ?? map['battery_ah'] ?? 38) as num;
+                  batCapacityKwh = (v.toDouble() * ah.toDouble()) / 1000.0;
                 }
+              }
+
+              if (batCapacityKwh == 0.0) {
+                // Fallback to settings
+                final v = prefs.getDouble('batteryVolt') ?? 72.0;
+                final ah = prefs.getDouble('batteryAh') ?? 38.0;
+                batCapacityKwh = (v * ah) / 1000.0;
+              }
+
+              final energyDcCharged = accumulated * efisiensi;
+              final addedPercentage = (energyDcCharged / batCapacityKwh) * 100;
+
+              final target = prefs.getDouble('persenTarget') ?? 100.0;
+              final awal = prefs.getDouble('persenAwal') ?? 0.0;
+              final newPersen = (awal + addedPercentage).clamp(0.0, target);
+
+              await prefs.setDouble('persenRealtime', newPersen);
+
+              // Check completion condition: Target reached OR Power dropped indicating full
+              if (curPower > 0 && curPower < 50.0) {
+                int lowPowerCount = prefs.getInt('lowPowerCount') ?? 0;
+                lowPowerCount++;
+                await prefs.setInt('lowPowerCount', lowPowerCount);
+              } else {
+                await prefs.setInt('lowPowerCount', 0);
+              }
+
+              final lowPowerCount = prefs.getInt('lowPowerCount') ?? 0;
+              // 4 consecutive reads at 30s interval = 2 minutes
+              final isTrickleFinished = lowPowerCount >= 4;
+
+              if (newPersen >= target || isTrickleFinished) {
+                // Charge Complete!
+                await TuyaApi.sendCommand([{'code': 'switch_1', 'value': false}]);
+                await prefs.remove('startTimeMs');
+                await prefs.remove('lastFetchTimeMs');
+                await prefs.remove('hasNotifiedLowPower');
+                await prefs.remove('lowPowerCount');
 
                 flutterLocalNotificationsPlugin.show(
-                  DateTime.now().millisecond,
-                  title,
-                  message,
-                  NotificationDetails(
+                  999,
+                  '✅ Pengisian Selesai',
+                  isTrickleFinished
+                      ? 'Daya stabil di bawah 50W selama 2 menit (Baterai Penuh).'
+                      : 'Baterai telah mencapai target.',
+                  const NotificationDetails(
                     android: AndroidNotificationDetails(
                       'my_foreground_v2',
                       'MY FOREGROUND SERVICE',
                       icon: 'ic_bg_service_small',
-                      ongoing: false,
                       importance: Importance.max,
                       priority: Priority.high,
                       playSound: true,
-                      sound: const RawResourceAndroidNotificationSound('notification_sound'),
-                      channelShowBadge: true,
-                      enableVibration: true,
-                      actions: actions.isNotEmpty ? actions : null,
                     ),
                   ),
                 );
+              } else if (elapsedHours > 0.01 && curPower > 0 && curPower < 300.0) {
+                // Notifikasi daya di bawah 300W (hanya sekali per sesi)
+                final hasNotified = prefs.getBool('hasNotifiedLowPower') ?? false;
+                if (!hasNotified) {
+                  flutterLocalNotificationsPlugin.show(
+                    998,
+                    '⚠️ Fase Tapering',
+                    'Daya pengisian menurun di bawah 300 Watt (${curPower.toStringAsFixed(0)}W).',
+                    const NotificationDetails(
+                      android: AndroidNotificationDetails(
+                        'my_foreground_v2',
+                        'MY FOREGROUND SERVICE',
+                        icon: 'ic_bg_service_small',
+                        importance: Importance.defaultImportance,
+                        priority: Priority.defaultPriority,
+                        playSound: true,
+                      ),
+                    ),
+                  );
+                  await prefs.setBool('hasNotifiedLowPower', true);
+                }
               }
             }
           }
-        } catch (e) {
-          debugPrint('Error parsing SSE data: $e');
         }
+
+        // When charging, loop every 30 seconds
+        await Future.delayed(const Duration(seconds: 30));
+      } else {
+        // Not charging, relax loop to 10 minutes
+        await Future.delayed(const Duration(minutes: 10));
       }
-    });
-  } catch (e) {
-    debugPrint('Error connecting to SSE: $e');
+    } catch (e) {
+      debugPrint('Background loop error: $e');
+      // If error, wait 30 seconds before retry to prevent spam
+      await Future.delayed(const Duration(seconds: 30));
+    }
   }
 }

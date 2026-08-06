@@ -160,24 +160,6 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
           initialValue: value,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           style: const TextStyle(color: Colors.white, fontSize: 16),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: const Color(0xFF0F172A), // slate-900
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF1E293B)), // slate-800
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF1E293B)), // slate-800
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF10B981)), // emerald-500
-            ),
-          ),
           onChanged: onChanged,
         ),
       ],
@@ -192,17 +174,6 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF94A3B8)), // slate-400
-        filled: true,
-        fillColor: const Color(0xFF0F172A), // slate-900
-        enabledBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Color(0xFF1E293B)), // slate-800
-          borderRadius: BorderRadius.circular(12),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Color(0xFF10B981)), // emerald-500
-          borderRadius: BorderRadius.circular(12),
-        ),
       ),
     );
   }

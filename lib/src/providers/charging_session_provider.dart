@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -48,6 +49,40 @@ class ChargingSessionState {
 class ChargingSessionNotifier extends StateNotifier<ChargingSessionState> {
   ChargingSessionNotifier() : super(const ChargingSessionState()) {
     _loadState();
+    _syncTimer = Timer.periodic(const Duration(seconds: 5), (_) => _syncFromPrefs());
+  }
+
+  Timer? _syncTimer;
+
+  @override
+  void dispose() {
+    _syncTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _syncFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final powerHistoryStr = prefs.getString('powerHistoryKw') ?? '';
+    final powerHistory = powerHistoryStr.isEmpty
+        ? <double>[]
+        : powerHistoryStr.split(',').map((e) => double.tryParse(e) ?? 0.0).toList();
+
+    // Only update if something changed to avoid unnecessary rebuilds
+    final startTime = prefs.getInt('startTimeMs');
+    final pReal = prefs.getDouble('persenRealtime') ?? 0.0;
+
+    if (state.startTimeMs != startTime || (state.persenRealtime - pReal).abs() > 0.1) {
+      state = ChargingSessionState(
+        persenAwal: prefs.getDouble('persenAwal') ?? 0.0,
+        persenTarget: prefs.getDouble('persenTarget') ?? 100.0,
+        persenRealtime: pReal,
+        accumulatedEnergyKWh: prefs.getDouble('accumulatedEnergyKWh') ?? 0.0,
+        startTimeMs: startTime,
+        lastFetchTimeMs: prefs.getInt('lastFetchTimeMs'),
+        powerHistoryKw: powerHistory,
+        smoothedPowerKw: prefs.getDouble('smoothedPowerKw') ?? 0.0,
+      );
+    }
   }
 
   Future<void> _loadState() async {

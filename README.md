@@ -4,9 +4,12 @@ An EV Charging Companion App built with Flutter. Designed to integrate with Tuya
 
 ## Features
 
-*   **Dashboard:** Real-time charging status, estimated completion time, and quick controls.
-*   **Vehicle Management:** Support for multiple vehicles with specific battery capacities and charging limits.
-*   **Settings:** Configure API credentials and app preferences.
+*   **Dashboard:** Real-time charging status, dynamic power estimation based on Constant Current/Constant Voltage (CC/CV) curves, and real-time AC to DC conversion metrics.
+*   **Background Polling:** Continues calculating energy and monitoring Tuya plug status even when the app is closed.
+*   **Smart Notifications:** Alerts you once the target percentage is reached or when the charger enters the tapering phase (< 300W), and automatically cuts off the smart plug.
+*   **Vehicle Management:** Support for multiple vehicles. Custom overrides for battery voltage, capacity (Ah), charger efficiency, and calibration data without touching the core models.
+*   **Modern UI:** Slate and Emerald dark theme, animated pulsing loaders, and keyboard-aware bottom sheets.
+*   **Settings:** Configure Tuya IoT API credentials, PLN tariff, and fallback battery parameters.
 
 ## Development Requirements
 
