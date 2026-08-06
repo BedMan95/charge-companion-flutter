@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io';
@@ -505,7 +506,7 @@ class DashboardView extends ConsumerWidget {
                   child: _buildSummaryItem(
                       LucideIcons.circleDollarSign,
                       'Est. Biaya',
-                      'Rp ${metrics.totalCost.toStringAsFixed(0)}')),
+                      NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0).format(metrics.totalCost))),
             ],
           ),
         ],
