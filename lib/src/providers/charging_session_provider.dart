@@ -71,19 +71,19 @@ class ChargingSessionNotifier extends StateNotifier<ChargingSessionState> {
     // Only update if something changed to avoid unnecessary rebuilds
     final startTime = prefs.getInt('startTimeMs');
     final pReal = prefs.getDouble('persenRealtime') ?? 0.0;
+    final accumulated = prefs.getDouble('accumulatedEnergyKWh') ?? 0.0;
 
-    if (state.startTimeMs != startTime || (state.persenRealtime - pReal).abs() > 0.01 || state.smoothedPowerKw != (prefs.getDouble('smoothedPowerKw') ?? 0.0)) {
-      state = ChargingSessionState(
-        persenAwal: prefs.getDouble('persenAwal') ?? 0.0,
-        persenTarget: prefs.getDouble('persenTarget') ?? 100.0,
-        persenRealtime: pReal,
-        accumulatedEnergyKWh: prefs.getDouble('accumulatedEnergyKWh') ?? 0.0,
-        startTimeMs: startTime,
-        lastFetchTimeMs: prefs.getInt('lastFetchTimeMs'),
-        powerHistoryKw: powerHistory,
-        smoothedPowerKw: prefs.getDouble('smoothedPowerKw') ?? 0.0,
-      );
-    }
+    // Always update to ensure we don't drop precision from background updates
+    state = ChargingSessionState(
+      persenAwal: prefs.getDouble('persenAwal') ?? 0.0,
+      persenTarget: prefs.getDouble('persenTarget') ?? 100.0,
+      persenRealtime: pReal,
+      accumulatedEnergyKWh: accumulated,
+      startTimeMs: startTime,
+      lastFetchTimeMs: prefs.getInt('lastFetchTimeMs'),
+      powerHistoryKw: powerHistory,
+      smoothedPowerKw: prefs.getDouble('smoothedPowerKw') ?? 0.0,
+    );
   }
 
   Future<void> _loadState() async {

@@ -43,24 +43,8 @@ class DashboardView extends ConsumerWidget {
                 10.0;
 
             final activeVehicle = ref.read(activeVehicleProvider);
-            final double usedCapacityKwh = (settingsState.useRealtime && activeVehicle != null)
-                ? (activeVehicle.batteryVolt * activeVehicle.batteryAh) / 1000.0
-                : settingsState.batteryCapacityKwh;
 
-            final double usedEfficiency = (settingsState.useRealtime && activeVehicle != null)
-                ? activeVehicle.efisiensiCharger
-                : settingsState.efisiensiCharger;
-
-            // Process realtime data if charging
-            if (relayStatus && curPower >= 5.0) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                ref.read(chargingSessionProvider.notifier).processRealtimeData(
-                      curPower / 1000.0,
-                      usedCapacityKwh,
-                      usedEfficiency,
-                    );
-              });
-            }
+            // Calculation moved to background service to prevent isolate race condition
 
             final metrics = ref.watch(metricsProvider);
 
@@ -125,24 +109,6 @@ class DashboardView extends ConsumerWidget {
 
   Widget _buildModernLoading() {
     return const ModernLoadingScreen();
-  }
-
-  Widget _buildPowerFlowAnimator(bool isCharging) {
-    if (!isCharging) {
-      return Container(
-        height: 4,
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B), // slate-800
-          borderRadius: BorderRadius.circular(2),
-        ),
-      );
-    }
-    return Container(
-      height: 4,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: const PowerFlowAnimation(),
-    );
   }
 
   Widget _buildHeroSection(bool isCharging, WidgetRef ref, BuildContext context) {
@@ -611,24 +577,12 @@ class DashboardView extends ConsumerWidget {
               '${power.toStringAsFixed(1)} W',
               power / 2200,
               const Color(0xFF3B82F6)), // blue-500
-          const SizedBox(height: 12),
-          _buildPowerFlowAnimator(isCharging),
-          const SizedBox(height: 12),
+          const SizedBox(height: 24),
           _buildProgressBar(
               'Daya Output DC (Baterai)',
               '${(metrics.actualPowerToBatteryKw * 1000).toStringAsFixed(1)} W',
               (metrics.actualPowerToBatteryKw * 1000) / 2200,
               const Color(0xFF10B981)), // emerald-500
-          const SizedBox(height: 12),
-          Center(
-            child: Text(
-              'Loss: ${(power - (metrics.actualPowerToBatteryKw * 1000)).toStringAsFixed(1)} W | Efisiensi: ${(usedEfficiency * 100).toStringAsFixed(0)}%',
-              style: const TextStyle(
-                  color: Color(0xFF94A3B8), // slate-400
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500),
-            ),
-          ),
           const SizedBox(height: 24),
           Container(
             padding: const EdgeInsets.all(16),
@@ -1079,100 +1033,6 @@ class DashboardView extends ConsumerWidget {
         ),
       ),
     );
-  }
-}
-
-class PowerFlowAnimation extends StatefulWidget {
-  const PowerFlowAnimation({super.key});
-
-  @override
-  State<PowerFlowAnimation> createState() => _PowerFlowAnimationState();
-}
-
-class _PowerFlowAnimationState extends State<PowerFlowAnimation>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return CustomPaint(
-          painter: _PowerFlowPainter(_controller.value),
-          size: const Size(double.infinity, 4),
-        );
-      },
-    );
-  }
-}
-
-class _PowerFlowPainter extends CustomPainter {
-  final double progress;
-
-  _PowerFlowPainter(this.progress);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF1E293B) // slate-800
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-
-    // Draw background track
-    canvas.drawLine(
-      const Offset(0, 2),
-      Offset(size.width, 2),
-      paint,
-    );
-
-    // Draw flowing dots
-    final dotPaint = Paint()
-      ..color = const Color(0xFF10B981) // emerald-500
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-
-    const dotCount = 5;
-    final spacing = size.width / dotCount;
-
-    for (var i = 0; i < dotCount; i++) {
-      double x = (progress * size.width + (i * spacing)) % size.width;
-
-      // Calculate opacity based on position (fade in at start, fade out at end)
-      double opacity = 1.0;
-      if (x < 20) {
-        opacity = x / 20;
-      } else if (x > size.width - 20) {
-        opacity = (size.width - x) / 20;
-      }
-
-      dotPaint.color = const Color(0xFF10B981).withOpacity(opacity);
-      canvas.drawLine(
-        Offset(x - 4, 2),
-        Offset(x + 4, 2),
-        dotPaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _PowerFlowPainter oldDelegate) {
-    return oldDelegate.progress != progress;
   }
 }
 
