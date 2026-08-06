@@ -5,7 +5,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 
@@ -101,7 +101,7 @@ void onStart(ServiceInstance service) async {
   try {
     final response = await client.send(request);
     response.stream.transform(utf8.decoder).listen((data) {
-      print('SSE Data received: $data');
+      debugPrint('SSE Data received: $data');
       if (data.isNotEmpty) {
         try {
           final lines = data.split('\n');
@@ -162,11 +162,11 @@ void onStart(ServiceInstance service) async {
             }
           }
         } catch (e) {
-          print('Error parsing SSE data: $e');
+          debugPrint('Error parsing SSE data: $e');
         }
       }
     });
   } catch (e) {
-    print('Error connecting to SSE: $e');
+    debugPrint('Error connecting to SSE: $e');
   }
 }

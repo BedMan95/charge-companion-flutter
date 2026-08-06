@@ -835,9 +835,9 @@ class DashboardView extends ConsumerWidget {
               ),
               Row(
                 children: [
-                  Text('Realtime',
+                  const Text('Realtime',
                       style:
-                          TextStyle(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500)), // slate-400
+                          TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500)), // slate-400
                   const SizedBox(width: 8),
                   Switch(
                       value: settingsState.useRealtime,
