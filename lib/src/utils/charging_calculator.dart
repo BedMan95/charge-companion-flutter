@@ -65,15 +65,23 @@ class ChargingCalculator {
       } else {
         final energiDcDibutuhkanRealtimeKwh =
             effectiveBatteryKWh * deltaPersenRealtime;
+
+        // Cegah estimasi waktu meledak saat trickle charge (power < 400W).
+        // Gunakan minimal power ekuivalen 1.5kW agar perhitungan waktu tetap masuk akal.
+        double powerForEstimate = actualPowerToBatteryKw;
+        if (powerInKw < 0.4 && currentPercent >= taperStartPercent) {
+          powerForEstimate = max(actualPowerToBatteryKw, 1.5 * chargingEfficiency);
+        }
+
         timeToChargeHours =
-            energiDcDibutuhkanRealtimeKwh / actualPowerToBatteryKw;
+            energiDcDibutuhkanRealtimeKwh / powerForEstimate;
 
         if (persenTarget > taperStartPercent) {
           final trickleStartPercent = max(taperStartPercent, currentPercent);
           final trickleDelta =
               max(0.0, (persenTarget - trickleStartPercent) / 100.0);
           final trickleEnergyKwh = effectiveBatteryKWh * trickleDelta;
-          final trickleBaseTime = trickleEnergyKwh / actualPowerToBatteryKw;
+          final trickleBaseTime = trickleEnergyKwh / powerForEstimate;
           timeToChargeHours += trickleBaseTime * 0.5;
         }
       }
