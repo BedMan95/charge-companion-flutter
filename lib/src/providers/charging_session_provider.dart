@@ -146,10 +146,19 @@ class ChargingSessionNotifier extends StateNotifier<ChargingSessionState> {
   }
 
   Future<void> stopSession() async {
-    await _saveState(state.copyWith(
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('startTimeMs');
+    await prefs.remove('lastFetchTimeMs');
+    state = ChargingSessionState(
+      persenAwal: state.persenAwal,
+      persenTarget: state.persenTarget,
+      persenRealtime: state.persenRealtime,
+      accumulatedEnergyKWh: state.accumulatedEnergyKWh,
       startTimeMs: null,
       lastFetchTimeMs: null,
-    ));
+      powerHistoryKw: state.powerHistoryKw,
+      smoothedPowerKw: state.smoothedPowerKw,
+    );
   }
 
   Future<void> resetSession() async {
@@ -163,9 +172,13 @@ class ChargingSessionNotifier extends StateNotifier<ChargingSessionState> {
     final now = DateTime.now().millisecondsSinceEpoch;
     final lastFetch = state.lastFetchTimeMs ?? now;
 
+    // To prevent rapid UI frame rendering from destroying the calculation with 0 multipliers,
+    // only process if at least 2 seconds have passed since last calculation.
+    if ((now - lastFetch) < 2000 && state.lastFetchTimeMs != null) return;
+
     // Calculate elapsed hours since last fetch
     final elapsedHours = (now - lastFetch) / (1000 * 3600);
-    if (elapsedHours <= 0) return;
+    if (elapsedHours <= 0 && state.lastFetchTimeMs != null) return;
 
     // Calculate energy added in this interval
     final energyAddedKwh = currentPowerKw * elapsedHours;

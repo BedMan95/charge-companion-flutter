@@ -246,16 +246,16 @@ void onStart(ServiceInstance service) async {
           }
         }
 
-        // When charging, loop every 30 seconds
-        await Future.delayed(const Duration(seconds: 30));
+        // When charging, loop every 5 seconds for more responsive UI
+        await Future.delayed(const Duration(seconds: 5));
       } else {
-        // Not charging, relax loop to 10 minutes
-        await Future.delayed(const Duration(minutes: 10));
+        // Not charging, relax loop to 5 minutes
+        await Future.delayed(const Duration(minutes: 5));
       }
     } catch (e) {
       debugPrint('Background loop error: $e');
-      // If error, wait 30 seconds before retry to prevent spam
-      await Future.delayed(const Duration(seconds: 30));
+      // If error, wait 5 seconds before retry to prevent spam
+      await Future.delayed(const Duration(seconds: 5));
     }
   }
 }

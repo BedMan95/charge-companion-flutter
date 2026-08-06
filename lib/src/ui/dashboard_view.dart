@@ -42,6 +42,26 @@ class DashboardView extends ConsumerWidget {
                     orElse: () => {'value': 0})['value'] /
                 10.0;
 
+            final activeVehicle = ref.read(activeVehicleProvider);
+            final double usedCapacityKwh = (settingsState.useRealtime && activeVehicle != null)
+                ? (activeVehicle.batteryVolt * activeVehicle.batteryAh) / 1000.0
+                : settingsState.batteryCapacityKwh;
+
+            final double usedEfficiency = (settingsState.useRealtime && activeVehicle != null)
+                ? activeVehicle.efisiensiCharger
+                : settingsState.efisiensiCharger;
+
+            // Process realtime data if charging
+            if (relayStatus && curPower >= 5.0) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                ref.read(chargingSessionProvider.notifier).processRealtimeData(
+                      curPower / 1000.0,
+                      usedCapacityKwh,
+                      usedEfficiency,
+                    );
+              });
+            }
+
             final metrics = ref.watch(metricsProvider);
 
             return RefreshIndicator(
