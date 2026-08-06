@@ -1,29 +1,39 @@
 # Charge Companion
 
-EV Charging App. Based on Tuya Smart Plug
+An EV Charging Companion App built with Flutter. Designed to integrate with Tuya Smart Plugs for monitoring and controlling your electric vehicle charging sessions.
+
+## Features
+
+*   **Dashboard:** Real-time charging status, estimated completion time, and quick controls.
+*   **Vehicle Management:** Support for multiple vehicles with specific battery capacities and charging limits.
+*   **Settings:** Configure API credentials and app preferences.
 
 ## Getting Started
 
-This project is a starting point for a Flutter application that follows the
-[simple app state management
-tutorial](https://flutter.dev/to/state-management-sample).
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/BedMan95/charge-companion-flutter.git
+    cd charge-companion-flutter
+    ```
+2.  **Install dependencies:**
+    ```bash
+    flutter pub get
+    ```
+3.  **Run the app:**
+    ```bash
+    flutter run
+    ```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Build APK
 
-## Assets
+The build script includes an auto-versioning feature for Android that increments the build number on each release build. The output APK name will be formatted as `ChargeCompanion_vYY.MM.DD.[build_number]_[variant].apk`.
 
-The `assets` directory houses images, fonts, and any other files you want to
-include with your application.
+**To build a debug APK:**
+```bash
+flutter build apk --debug
+```
 
-The `assets/images` directory contains [resolution-aware
-images](https://flutter.dev/to/resolution-aware-images).
-
-## Localization
-
-This project generates localized messages based on arb files found in
-the `lib/src/localization` directory.
-
-To support additional languages, please visit the tutorial on
-[Internationalizing Flutter apps](https://flutter.dev/to/internationalization).
+**To build a release APK:**
+```bash
+flutter build apk --release
+```
