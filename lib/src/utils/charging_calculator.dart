@@ -19,12 +19,14 @@ class ChargingMetrics {
   final double actualPowerToBatteryKw;
   final double timeToChargeHours;
   final double totalCost;
+  final double chargingEfficiency;
 
   const ChargingMetrics({
     required this.powerInKw,
     required this.actualPowerToBatteryKw,
     required this.timeToChargeHours,
     required this.totalCost,
+    required this.chargingEfficiency,
   });
 }
 
@@ -115,6 +117,7 @@ class ChargingCalculator {
       actualPowerToBatteryKw: actualPowerToBatteryKw,
       timeToChargeHours: timeToChargeHours,
       totalCost: totalCost,
+      chargingEfficiency: dynamicEfficiency,
     );
   }
 }

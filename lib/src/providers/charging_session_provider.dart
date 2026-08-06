@@ -62,6 +62,7 @@ class ChargingSessionNotifier extends StateNotifier<ChargingSessionState> {
 
   Future<void> _syncFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload(); // Force reload from disk to get background service updates
     final powerHistoryStr = prefs.getString('powerHistoryKw') ?? '';
     final powerHistory = powerHistoryStr.isEmpty
         ? <double>[]
@@ -71,7 +72,7 @@ class ChargingSessionNotifier extends StateNotifier<ChargingSessionState> {
     final startTime = prefs.getInt('startTimeMs');
     final pReal = prefs.getDouble('persenRealtime') ?? 0.0;
 
-    if (state.startTimeMs != startTime || (state.persenRealtime - pReal).abs() > 0.1) {
+    if (state.startTimeMs != startTime || (state.persenRealtime - pReal).abs() > 0.01 || state.smoothedPowerKw != (prefs.getDouble('smoothedPowerKw') ?? 0.0)) {
       state = ChargingSessionState(
         persenAwal: prefs.getDouble('persenAwal') ?? 0.0,
         persenTarget: prefs.getDouble('persenTarget') ?? 100.0,
