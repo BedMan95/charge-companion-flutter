@@ -32,7 +32,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
     try {
       PackageInfo packageInfo = await PackageInfo.fromPlatform();
       setState(() {
-        _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+        _appVersion = packageInfo.version;
       });
     } catch (e) {
       setState(() {
