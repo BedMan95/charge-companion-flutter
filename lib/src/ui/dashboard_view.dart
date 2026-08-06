@@ -40,31 +40,40 @@ class DashboardView extends ConsumerWidget {
                     orElse: () => {'value': 0})['value'] /
                 10.0;
 
+            final activeVehicle = ref.read(activeVehicleProvider);
+            final double usedCapacityKwh = (settingsState.useRealtime && activeVehicle != null)
+                ? (activeVehicle.batteryVolt * activeVehicle.batteryAh) / 1000.0
+                : settingsState.batteryCapacityKwh;
+
+            final double usedEfficiency = (settingsState.useRealtime && activeVehicle != null)
+                ? activeVehicle.efisiensiCharger
+                : settingsState.efisiensiCharger;
+
             // Process realtime data if charging
             if (relayStatus && curPower >= 5.0) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 ref.read(chargingSessionProvider.notifier).processRealtimeData(
                       curPower / 1000.0,
-                      settingsState.batteryCapacityKwh,
-                      settingsState.efisiensiCharger,
+                      usedCapacityKwh,
+                      usedEfficiency,
                     );
               });
             }
 
             final metrics = ChargingCalculator.calculateMetrics(
-              currentPowerConsumption: curPower,
-              batteryCapacity: settingsState.batteryCapacityKwh,
-              chargingEfficiency: settingsState.efisiensiCharger,
+              currentPowerConsumption: sessionState.powerHistoryKw.isEmpty ? curPower : sessionState.smoothedPowerKw * 1000.0,
+              batteryCapacity: usedCapacityKwh,
+              chargingEfficiency: usedEfficiency,
               electricityCostPerKWh: settingsState.tarifPln,
               persenAwal: sessionState.persenAwal,
               persenTarget: sessionState.persenTarget,
               persenRealtime: sessionState.persenRealtime,
               isCharging: relayStatus,
               calibration: ChargingCalibrationProfile(
-                usableBatteryKWh: settingsState.batteryCapacityKwh,
-                wallEnergyFullKWh: settingsState.batteryCapacityKwh / settingsState.efisiensiCharger,
-                fullChargeHours: (settingsState.batteryCapacityKwh / settingsState.efisiensiCharger) / (curPower > 0 ? curPower / 1000.0 : 1.0),
-                taperStartPercent: 80.0,
+                usableBatteryKWh: activeVehicle?.calibrationUsableBatteryKwh ?? usedCapacityKwh,
+                wallEnergyFullKWh: activeVehicle?.calibrationWallEnergyFullKwh ?? (usedCapacityKwh / usedEfficiency),
+                fullChargeHours: activeVehicle?.calibrationFullChargeHours ?? ((usedCapacityKwh / usedEfficiency) / (curPower > 0 ? curPower / 1000.0 : 1.0)),
+                taperStartPercent: activeVehicle?.calibrationTaperStartPercent ?? 80.0,
               ),
             );
 
@@ -304,10 +313,10 @@ class DashboardView extends ConsumerWidget {
                 final sessionNotifier =
                     ref.read(chargingSessionProvider.notifier);
 
-                notifier.toggleRelay(!isCharging);
                 if (!isCharging) {
-                  sessionNotifier.startSession();
+                  _showPreChargeDialog(context, ref, ref.read(chargingSessionProvider));
                 } else {
+                  notifier.toggleRelay(false);
                   sessionNotifier.stopSession();
                 }
               },
@@ -320,37 +329,13 @@ class DashboardView extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          if (!isCharging)
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: const Color(0xFF0F172A), // slate-900
-                  side: const BorderSide(color: Color(0xFF1E293B)), // slate-800
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  _showDelayTimerDialog(context, ref);
-                },
-                icon: const Icon(LucideIcons.clock, color: Color(0xFFCBD5E1), size: 16),
-                label: const Text(
-                  'DELAY TIMER',
-                  style: TextStyle(
-                      color: Color(0xFFCBD5E1),
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
         ],
       ),
     );
   }
 
-  void _showDelayTimerDialog(BuildContext context, WidgetRef ref) {
+  void _showPreChargeDialog(BuildContext context, WidgetRef ref, ChargingSessionState sessionState) {
+    final batController = TextEditingController(text: sessionState.persenAwal.toStringAsFixed(0));
     final hController = TextEditingController(text: '0');
     final mController = TextEditingController(text: '0');
     final sController = TextEditingController(text: '0');
@@ -359,12 +344,38 @@ class DashboardView extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
-        title: const Text('Set Delay Timer', style: TextStyle(color: Colors.white)),
+        title: const Text('Mulai Pengisian', style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Mulai charging otomatis setelah:', style: TextStyle(color: Color(0xFF94A3B8))),
-            const SizedBox(height: 20),
+            const Text('Baterai Saat Ini (%)', style: TextStyle(color: Color(0xFF94A3B8))),
+            const SizedBox(height: 8),
+            TextField(
+              controller: batController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFF020617),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFF10B981)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text('Delay Timer (Otomatis menyala setelah):', style: TextStyle(color: Color(0xFF94A3B8))),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(child: _buildTimerInput('Jam', hController)),
@@ -381,25 +392,41 @@ class DashboardView extends ConsumerWidget {
             onPressed: () => Navigator.pop(context),
             child: const Text('Batal', style: TextStyle(color: Color(0xFF94A3B8))),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: () {
+              final bat = double.tryParse(batController.text) ?? 0.0;
               final h = int.tryParse(hController.text) ?? 0;
               final m = int.tryParse(mController.text) ?? 0;
               final s = int.tryParse(sController.text) ?? 0;
               final totalSeconds = (h * 3600) + (m * 60) + s;
-              
-              if (totalSeconds > 0) {
-                ref.read(tuyaStatusProvider.notifier).setCountdown(totalSeconds);
+
+              final sessionNotifier = ref.read(chargingSessionProvider.notifier);
+              final tuyaNotifier = ref.read(tuyaStatusProvider.notifier);
+
+              sessionNotifier.updatePersenAwal(bat).then((_) {
+                if (!context.mounted) return;
+
+                if (totalSeconds > 0) {
+                  tuyaNotifier.setCountdown(totalSeconds);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Timer diatur: $h j, $m m, $s d'),
+                      backgroundColor: const Color(0xFF10B981),
+                    ),
+                  );
+                } else {
+                  tuyaNotifier.toggleRelay(true);
+                  sessionNotifier.startSession();
+                }
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Timer diatur: $h j, $m m, $s d'),
-                    backgroundColor: const Color(0xFF10B981),
-                  ),
-                );
-              }
+              });
             },
-            child: const Text('Mulai Timer', style: TextStyle(color: Color(0xFF34D399))),
+            child: const Text('Mulai'),
           ),
         ],
       ),
@@ -854,80 +881,56 @@ class DashboardView extends ConsumerWidget {
           const SizedBox(height: 16),
           const Divider(color: Color(0xFF1E293B)), // slate-800
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                  child: _buildInputField('BATERAI AWAL (%)',
-                      sessionState.persenAwal.toStringAsFixed(0),
-                      onTap: () => _showEditDialog(
-                          context,
-                          'Baterai Awal (%)',
-                          sessionState.persenAwal.toStringAsFixed(0),
-                          (val) => ref
-                              .read(chargingSessionProvider.notifier)
-                              .updatePersenAwal(double.parse(val))))),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: _buildInputField('TARGET (%)',
-                      '${sessionState.persenTarget.toStringAsFixed(0)}%',
-                      isReadOnly: true,
-                      onTap: () => _showEditDialog(
-                          context,
-                          'Target (%)',
-                          sessionState.persenTarget.toStringAsFixed(0),
-                          (val) => ref
-                              .read(chargingSessionProvider.notifier)
-                              .updatePersenTarget(double.parse(val))))),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                  child: _buildInputField('VOLTASE BAT (V)',
-                      settingsState.batteryVolt.toStringAsFixed(0),
-                      onTap: () => _showEditDialog(
-                          context,
-                          'Voltase Baterai (V)',
-                          settingsState.batteryVolt.toStringAsFixed(0),
-                          (val) => ref
-                              .read(settingsProvider.notifier)
-                              .updateBatteryVolt(double.parse(val))))),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: _buildInputField('KAPASITAS (AH)',
-                      settingsState.batteryAh.toStringAsFixed(0),
-                      onTap: () => _showEditDialog(
-                          context,
-                          'Kapasitas (Ah)',
-                          settingsState.batteryAh.toStringAsFixed(0),
-                          (val) => ref
-                              .read(settingsProvider.notifier)
-                              .updateBatteryAh(double.parse(val))))),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: _buildInputField('EFISIENSI',
-                      settingsState.efisiensiCharger.toStringAsFixed(2),
-                      onTap: () => _showEditDialog(
-                          context,
-                          'Efisiensi',
-                          settingsState.efisiensiCharger.toStringAsFixed(2),
-                          (val) => ref
-                              .read(settingsProvider.notifier)
-                              .updateEfisiensi(double.parse(val))))),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildInputField(
-              'TARIF PLN (RP/KWH)', settingsState.tarifPln.toStringAsFixed(0),
+          _buildInputField('TARGET PENGISIAN (%)',
+              '${sessionState.persenTarget.toStringAsFixed(0)}%',
+              isReadOnly: true,
               onTap: () => _showEditDialog(
                   context,
-                  'Tarif PLN (Rp/kWh)',
-                  settingsState.tarifPln.toStringAsFixed(0),
+                  'Target (%)',
+                  sessionState.persenTarget.toStringAsFixed(0),
                   (val) => ref
-                      .read(settingsProvider.notifier)
-                      .updateTarifPln(double.parse(val)))),
-          const SizedBox(height: 24),
+                      .read(chargingSessionProvider.notifier)
+                      .updatePersenTarget(double.parse(val)))),
+          const SizedBox(height: 16),
+          if (!settingsState.useRealtime) ...[
+            Row(
+              children: [
+                Expanded(
+                    child: _buildInputField('VOLTASE BAT (V)',
+                        settingsState.batteryVolt.toStringAsFixed(0),
+                        onTap: () => _showEditDialog(
+                            context,
+                            'Voltase Baterai (V)',
+                            settingsState.batteryVolt.toStringAsFixed(0),
+                            (val) => ref
+                                .read(settingsProvider.notifier)
+                                .updateBatteryVolt(double.parse(val))))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _buildInputField('KAPASITAS (AH)',
+                        settingsState.batteryAh.toStringAsFixed(0),
+                        onTap: () => _showEditDialog(
+                            context,
+                            'Kapasitas (Ah)',
+                            settingsState.batteryAh.toStringAsFixed(0),
+                            (val) => ref
+                                .read(settingsProvider.notifier)
+                                .updateBatteryAh(double.parse(val))))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _buildInputField('EFISIENSI',
+                        settingsState.efisiensiCharger.toStringAsFixed(2),
+                        onTap: () => _showEditDialog(
+                            context,
+                            'Efisiensi',
+                            settingsState.efisiensiCharger.toStringAsFixed(2),
+                            (val) => ref
+                                .read(settingsProvider.notifier)
+                                .updateEfisiensi(double.parse(val))))),
+              ],
+            ),
+            const SizedBox(height: 24),
+          ],
           Row(
             children: [
               Expanded(

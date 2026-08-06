@@ -19,9 +19,18 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      try { await db.execute('ALTER TABLE user_vehicles ADD COLUMN custom_battery_volt REAL'); } catch (_) {}
+      try { await db.execute('ALTER TABLE user_vehicles ADD COLUMN custom_battery_ah REAL'); } catch (_) {}
+      try { await db.execute('ALTER TABLE user_vehicles ADD COLUMN custom_efisiensi_charger REAL'); } catch (_) {}
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -65,6 +74,9 @@ class DatabaseHelper {
         calibration_wall_energy_full_kwh REAL,
         calibration_full_charge_hours REAL,
         calibration_taper_start_percent REAL,
+        custom_battery_volt REAL,
+        custom_battery_ah REAL,
+        custom_efisiensi_charger REAL,
         FOREIGN KEY (ev_model_id) REFERENCES ev_models (id)
       )
     ''');

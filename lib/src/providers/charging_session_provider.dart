@@ -8,6 +8,8 @@ class ChargingSessionState {
   final double accumulatedEnergyKWh;
   final int? startTimeMs;
   final int? lastFetchTimeMs;
+  final List<double> powerHistoryKw;
+  final double smoothedPowerKw;
 
   const ChargingSessionState({
     this.persenAwal = 0.0,
@@ -16,6 +18,8 @@ class ChargingSessionState {
     this.accumulatedEnergyKWh = 0.0,
     this.startTimeMs,
     this.lastFetchTimeMs,
+    this.powerHistoryKw = const [],
+    this.smoothedPowerKw = 0.0,
   });
 
   ChargingSessionState copyWith({
@@ -25,6 +29,8 @@ class ChargingSessionState {
     double? accumulatedEnergyKWh,
     int? startTimeMs,
     int? lastFetchTimeMs,
+    List<double>? powerHistoryKw,
+    double? smoothedPowerKw,
   }) {
     return ChargingSessionState(
       persenAwal: persenAwal ?? this.persenAwal,
@@ -33,6 +39,8 @@ class ChargingSessionState {
       accumulatedEnergyKWh: accumulatedEnergyKWh ?? this.accumulatedEnergyKWh,
       startTimeMs: startTimeMs ?? this.startTimeMs,
       lastFetchTimeMs: lastFetchTimeMs ?? this.lastFetchTimeMs,
+      powerHistoryKw: powerHistoryKw ?? this.powerHistoryKw,
+      smoothedPowerKw: smoothedPowerKw ?? this.smoothedPowerKw,
     );
   }
 }
@@ -44,6 +52,11 @@ class ChargingSessionNotifier extends StateNotifier<ChargingSessionState> {
 
   Future<void> _loadState() async {
     final prefs = await SharedPreferences.getInstance();
+    final powerHistoryStr = prefs.getString('powerHistoryKw') ?? '';
+    final powerHistory = powerHistoryStr.isEmpty
+        ? <double>[]
+        : powerHistoryStr.split(',').map((e) => double.tryParse(e) ?? 0.0).toList();
+
     state = ChargingSessionState(
       persenAwal: prefs.getDouble('persenAwal') ?? 0.0,
       persenTarget: prefs.getDouble('persenTarget') ?? 100.0,
@@ -51,6 +64,8 @@ class ChargingSessionNotifier extends StateNotifier<ChargingSessionState> {
       accumulatedEnergyKWh: prefs.getDouble('accumulatedEnergyKWh') ?? 0.0,
       startTimeMs: prefs.getInt('startTimeMs'),
       lastFetchTimeMs: prefs.getInt('lastFetchTimeMs'),
+      powerHistoryKw: powerHistory,
+      smoothedPowerKw: prefs.getDouble('smoothedPowerKw') ?? 0.0,
     );
   }
 
@@ -71,6 +86,8 @@ class ChargingSessionNotifier extends StateNotifier<ChargingSessionState> {
     } else {
       await prefs.remove('lastFetchTimeMs');
     }
+    await prefs.setString('powerHistoryKw', newState.powerHistoryKw.join(','));
+    await prefs.setDouble('smoothedPowerKw', newState.smoothedPowerKw);
     state = newState;
   }
 
@@ -124,10 +141,19 @@ class ChargingSessionNotifier extends StateNotifier<ChargingSessionState> {
     final newPersenRealtime =
         (state.persenAwal + addedPercentage).clamp(0.0, state.persenTarget);
 
+    const maxHistory = 10;
+    final newHistory = List<double>.from(state.powerHistoryKw)..add(currentPowerKw);
+    if (newHistory.length > maxHistory) {
+      newHistory.removeAt(0);
+    }
+    final smoothed = newHistory.isEmpty ? 0.0 : newHistory.reduce((a, b) => a + b) / newHistory.length;
+
     await _saveState(state.copyWith(
       accumulatedEnergyKWh: newAccumulatedEnergy,
       persenRealtime: newPersenRealtime,
       lastFetchTimeMs: now,
+      powerHistoryKw: newHistory,
+      smoothedPowerKw: smoothed,
     ));
   }
 }

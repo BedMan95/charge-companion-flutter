@@ -13,6 +13,16 @@ class Vehicle {
   final double? calibrationFullChargeHours;
   final double? calibrationTaperStartPercent;
 
+  // Relational data from ev_models
+  final double batteryVolt;
+  final double batteryAh;
+  final double efisiensiCharger;
+
+  // Custom overrides
+  final double? customBatteryVolt;
+  final double? customBatteryAh;
+  final double? customEfisiensiCharger;
+
   Vehicle({
     required this.id,
     required this.evModelId,
@@ -23,6 +33,12 @@ class Vehicle {
     this.calibrationWallEnergyFullKwh,
     this.calibrationFullChargeHours,
     this.calibrationTaperStartPercent,
+    this.batteryVolt = 72.0,
+    this.batteryAh = 38.0,
+    this.efisiensiCharger = 0.82,
+    this.customBatteryVolt,
+    this.customBatteryAh,
+    this.customEfisiensiCharger,
   });
 
   factory Vehicle.fromMap(Map<String, dynamic> map) {
@@ -36,6 +52,12 @@ class Vehicle {
       calibrationWallEnergyFullKwh: map['calibration_wall_energy_full_kwh'],
       calibrationFullChargeHours: map['calibration_full_charge_hours'],
       calibrationTaperStartPercent: map['calibration_taper_start_percent'],
+      customBatteryVolt: map['custom_battery_volt'],
+      customBatteryAh: map['custom_battery_ah'],
+      customEfisiensiCharger: map['custom_efisiensi_charger'],
+      batteryVolt: (map['custom_battery_volt'] ?? map['battery_volt'] ?? 72).toDouble(),
+      batteryAh: (map['custom_battery_ah'] ?? map['battery_ah'] ?? 38).toDouble(),
+      efisiensiCharger: (map['custom_efisiensi_charger'] ?? map['efisiensi_charger'] ?? 0.82).toDouble(),
     );
   }
 
@@ -50,6 +72,9 @@ class Vehicle {
       'calibration_wall_energy_full_kwh': calibrationWallEnergyFullKwh,
       'calibration_full_charge_hours': calibrationFullChargeHours,
       'calibration_taper_start_percent': calibrationTaperStartPercent,
+      'custom_battery_volt': customBatteryVolt,
+      'custom_battery_ah': customBatteryAh,
+      'custom_efisiensi_charger': customEfisiensiCharger,
     };
   }
 
@@ -63,6 +88,12 @@ class Vehicle {
     double? calibrationWallEnergyFullKwh,
     double? calibrationFullChargeHours,
     double? calibrationTaperStartPercent,
+    double? customBatteryVolt,
+    double? customBatteryAh,
+    double? customEfisiensiCharger,
+    double? batteryVolt,
+    double? batteryAh,
+    double? efisiensiCharger,
   }) {
     return Vehicle(
       id: id ?? this.id,
@@ -78,6 +109,12 @@ class Vehicle {
           calibrationFullChargeHours ?? this.calibrationFullChargeHours,
       calibrationTaperStartPercent:
           calibrationTaperStartPercent ?? this.calibrationTaperStartPercent,
+      customBatteryVolt: customBatteryVolt ?? this.customBatteryVolt,
+      customBatteryAh: customBatteryAh ?? this.customBatteryAh,
+      customEfisiensiCharger: customEfisiensiCharger ?? this.customEfisiensiCharger,
+      batteryVolt: batteryVolt ?? this.batteryVolt,
+      batteryAh: batteryAh ?? this.batteryAh,
+      efisiensiCharger: efisiensiCharger ?? this.efisiensiCharger,
     );
   }
 }
@@ -90,7 +127,11 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
   Future<void> loadVehicles() async {
     try {
       final db = await DatabaseHelper.instance.database;
-      final maps = await db.query('user_vehicles');
+      final maps = await db.rawQuery('''
+        SELECT uv.*, em.battery_volt, em.battery_ah, em.efisiensi_charger
+        FROM user_vehicles uv
+        LEFT JOIN ev_models em ON uv.ev_model_id = em.id
+      ''');
       final vehicles = maps.map((map) => Vehicle.fromMap(map)).toList();
       state = AsyncValue.data(vehicles);
     } catch (e, stack) {
@@ -137,6 +178,9 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
     double? wallEnergyFullKwh,
     double? fullChargeHours,
     double? taperStartPercent,
+    double? customBatteryVolt,
+    double? customBatteryAh,
+    double? customEfisiensiCharger,
   }) async {
     try {
       final db = await DatabaseHelper.instance.database;
@@ -147,6 +191,9 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
           'calibration_wall_energy_full_kwh': wallEnergyFullKwh,
           'calibration_full_charge_hours': fullChargeHours,
           'calibration_taper_start_percent': taperStartPercent,
+          'custom_battery_volt': customBatteryVolt,
+          'custom_battery_ah': customBatteryAh,
+          'custom_efisiensi_charger': customEfisiensiCharger,
         },
         where: 'id = ?',
         whereArgs: [id],

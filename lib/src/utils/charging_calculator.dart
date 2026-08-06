@@ -41,11 +41,16 @@ class ChargingCalculator {
     ChargingCalibrationProfile? calibration,
   }) {
     final powerInKw = currentPowerConsumption / 1000.0;
+
+    // Dynamic efficiency based on SLA voltage curve
+    // SLA 72V nominal: ~63V empty to ~84V full
+    // As voltage increases and power drops in CV, efficiency of charger changes.
+    // For now we use the base efficiency provided, but ensure power scaling is correct.
+    final dynamicEfficiency = chargingEfficiency;
+
     final actualPowerToBatteryKw =
-        isCharging ? powerInKw * chargingEfficiency : 0.0;
+        isCharging ? powerInKw * dynamicEfficiency : 0.0;
     final currentPercent = persenRealtime;
-    final deltaPersenRealtime =
-        max(0.0, (persenTarget - currentPercent) / 100.0);
     final deltaPersenTotal = max(0.0, (persenTarget - persenAwal) / 100.0);
 
     final effectiveBatteryKWh =
@@ -63,32 +68,45 @@ class ChargingCalculator {
           calibratedFullChargeHours != null) {
         timeToChargeHours = calibratedFullChargeHours;
       } else {
-        final energiDcDibutuhkanRealtimeKwh =
-            effectiveBatteryKWh * deltaPersenRealtime;
+        // Minimum power assumption to prevent infinite time
+        double powerForEstimate = max(actualPowerToBatteryKw, 0.5 * dynamicEfficiency);
 
-        // Cegah estimasi waktu meledak saat trickle charge (power < 400W).
-        // Gunakan minimal power ekuivalen 1.5kW agar perhitungan waktu tetap masuk akal.
-        double powerForEstimate = actualPowerToBatteryKw;
-        if (powerInKw < 0.4 && currentPercent >= taperStartPercent) {
-          powerForEstimate = max(actualPowerToBatteryKw, 1.5 * chargingEfficiency);
+        // Time for CC phase (below taper start)
+        if (currentPercent < taperStartPercent) {
+          final ccEndPercent = min(persenTarget, taperStartPercent);
+          final ccDelta = max(0.0, (ccEndPercent - currentPercent) / 100.0);
+          final ccEnergyKwh = effectiveBatteryKWh * ccDelta;
+          timeToChargeHours += ccEnergyKwh / powerForEstimate;
         }
 
-        timeToChargeHours =
-            energiDcDibutuhkanRealtimeKwh / powerForEstimate;
-
+        // Time for CV phase (SLA taper) using numerical integration
         if (persenTarget > taperStartPercent) {
-          final trickleStartPercent = max(taperStartPercent, currentPercent);
-          final trickleDelta =
-              max(0.0, (persenTarget - trickleStartPercent) / 100.0);
-          final trickleEnergyKwh = effectiveBatteryKWh * trickleDelta;
-          final trickleBaseTime = trickleEnergyKwh / powerForEstimate;
-          timeToChargeHours += trickleBaseTime * 0.5;
+          final cvStartPercent = max(taperStartPercent, currentPercent);
+          if (cvStartPercent < persenTarget) {
+            final steps = (persenTarget - cvStartPercent).ceil();
+            double cvTime = 0.0;
+
+            for (int i = 0; i < steps; i++) {
+              final stepSoC = cvStartPercent + i;
+              // Simulate SLA CV taper: power drops linearly from max at 80% to 10% of max at 100%
+              // Normalized SoC in CV phase: 0.0 at 80%, 1.0 at 100%
+              final normalizedCVSoC = (stepSoC - taperStartPercent) / (100.0 - taperStartPercent);
+              // Power factor drops from 1.0 down to 0.1
+              final powerFactor = 1.0 - (0.9 * normalizedCVSoC);
+
+              final stepPower = max(powerForEstimate * powerFactor, 0.1 * dynamicEfficiency);
+              final stepEnergyKwh = effectiveBatteryKWh * (1.0 / 100.0);
+
+              cvTime += stepEnergyKwh / stepPower;
+            }
+            timeToChargeHours += cvTime;
+          }
         }
       }
     }
 
     final totalEnergiAc0100Kwh =
-        calibratedWallEnergyFullKWh ?? (batteryCapacity / chargingEfficiency);
+        calibratedWallEnergyFullKWh ?? (batteryCapacity / dynamicEfficiency);
     final totalCost =
         totalEnergiAc0100Kwh * deltaPersenTotal * electricityCostPerKWh;
 

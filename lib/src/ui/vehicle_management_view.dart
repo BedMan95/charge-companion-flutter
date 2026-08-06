@@ -263,6 +263,13 @@ class VehicleManagementView extends ConsumerWidget {
 
   void _showVehicleSettingsDialog(
       BuildContext context, WidgetRef ref, Vehicle vehicle) {
+    final voltController = TextEditingController(
+        text: vehicle.customBatteryVolt?.toString() ?? vehicle.batteryVolt.toString());
+    final ahController = TextEditingController(
+        text: vehicle.customBatteryAh?.toString() ?? vehicle.batteryAh.toString());
+    final efisiensiController = TextEditingController(
+        text: vehicle.customEfisiensiCharger?.toString() ?? vehicle.efisiensiCharger.toString());
+
     final usableBatteryController = TextEditingController(
         text: vehicle.calibrationUsableBatteryKwh?.toString() ?? '');
     final wallEnergyController = TextEditingController(
@@ -282,6 +289,48 @@ class VehicleManagementView extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: 8.0),
+                  child: Text('Spesifikasi Dasar (Override)', style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 12)),
+                )
+              ),
+              TextField(
+                controller: voltController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Voltase Baterai (V)',
+                  labelStyle: TextStyle(color: Color(0xFF94A3B8)), // slate-400
+                ),
+              ),
+              TextField(
+                controller: ahController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Kapasitas (Ah)',
+                  labelStyle: TextStyle(color: Color(0xFF94A3B8)), // slate-400
+                ),
+              ),
+              TextField(
+                controller: efisiensiController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Efisiensi Charger (0.0 - 1.0)',
+                  labelStyle: TextStyle(color: Color(0xFF94A3B8)), // slate-400
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: 8.0),
+                  child: Text('Kalibrasi Waktu & Taper', style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 12)),
+                )
+              ),
               TextField(
                 controller: usableBatteryController,
                 keyboardType:
@@ -334,6 +383,9 @@ class VehicleManagementView extends ConsumerWidget {
             onPressed: () {
               ref.read(vehicleProvider.notifier).updateVehicleSettings(
                     vehicle.id,
+                    customBatteryVolt: double.tryParse(voltController.text),
+                    customBatteryAh: double.tryParse(ahController.text),
+                    customEfisiensiCharger: double.tryParse(efisiensiController.text),
                     usableBatteryKwh:
                         double.tryParse(usableBatteryController.text),
                     wallEnergyFullKwh:
