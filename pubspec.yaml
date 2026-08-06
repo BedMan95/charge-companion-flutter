@@ -1,0 +1,49 @@
+name: chargecompanion
+description: "EV Charging App. Based on Tuya Smart Plug"
+
+# Prevent accidental publishing to pub.dev.
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  sqflite: ^2.3.0
+  path: ^1.9.0
+  flutter_riverpod: ^2.5.1
+  shared_preferences: ^2.5.3
+  http: ^1.2.1
+  lucide_icons: ^0.257.0
+  crypto: ^3.0.7
+  image_picker: ^1.1.2
+  path_provider: ^2.1.5
+  uuid: ^4.6.0
+  permission_handler: ^12.0.3
+  flutter_local_notifications: ^19.5.0
+  flutter_background_service: ^5.1.0
+  flutter_background_service_android: ^6.3.1
+  fetch_client: ^1.2.1
+  google_fonts: ^6.3.0
+  package_info_plus: 8.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Enable generation of localized Strings from arb files.
+  generate: true
+
+  assets:
+    # Add assets from the images directory to the application.
+    - assets/images/

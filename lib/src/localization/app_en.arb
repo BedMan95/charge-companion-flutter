@@ -1,0 +1,6 @@
+{
+  "appTitle": "Charge Companion",
+  "@appTitle": {
+    "description": "EV Charging App. Based on Tuya Smart Plug"
+  }
+}

@@ -1,0 +1,111 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+// Read properties
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+if (flutterVersionCode == null) {
+    flutterVersionCode = '1'
+}
+
+def flutterVersionName = localProperties.getProperty('flutter.versionName')
+if (flutterVersionName == null) {
+    flutterVersionName = '1.0'
+}
+
+import java.text.SimpleDateFormat
+import java.util.Date
+
+
+// Global variable to hold the build number for this Gradle run
+def getBuildNumber() {
+    def buildNumberFile = file("build_number.txt")
+    if (buildNumberFile.exists()) {
+        return buildNumberFile.text.toInteger()
+    }
+    return 1
+}
+ext.currentBuildNumber = getBuildNumber()
+
+// Only increment on bundle/assemble explicitly requested from command line
+// To sync debug/release versions, maybe just stick to reading the file here without incrementing
+// and have a separate script/process to increment.
+// Or only increment on release.
+gradle.taskGraph.whenReady { taskGraph ->
+    def hasAssembleOrBundle = taskGraph.allTasks.any { it.name.contains("assemble") || it.name.contains("bundle") }
+    def isRelease = taskGraph.allTasks.any { it.name.toLowerCase().contains("release") }
+    
+    // Only increment once per compilation, and only on Release builds to keep Debug in sync
+    if (hasAssembleOrBundle && isRelease && !project.ext.has('buildNumberIncremented')) {
+        def file = new File(projectDir, "build_number.txt")
+        def current = file.exists() ? file.text.toInteger() : 1
+        def next = current + 1
+        file.text = next.toString()
+        project.ext.currentBuildNumber = next
+        project.ext.buildNumberIncremented = true
+    }
+}
+
+
+android {
+    namespace = "id.my.fornubi.chargecompanion"
+    compileSdk = 35
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8
+    }
+
+    defaultConfig {
+        applicationId = "id.my.fornubi.chargecompanion"
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
+        
+        def date = new Date()
+        def format = new SimpleDateFormat("yyMMdd")
+        // yyMMdd + buildNumber
+        versionCode = (format.format(date) + String.format("%03d", getBuildNumber())).toInteger()
+        
+        def formatName = new SimpleDateFormat("yy.MM.dd")
+        versionName = "${formatName.format(date)}.${getBuildNumber()}"
+    }
+
+    buildTypes {
+        release {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig = signingConfigs.debug
+        }
+    }
+
+    // This must evaluate lazily to get the updated build number
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def appName = "ChargeCompanion"
+            def date = new Date()
+            def format = new SimpleDateFormat("yy.MM.dd")
+            def vName = format.format(date)
+            outputFileName = "${appName}_v${vName}.${getBuildNumber()}_${variant.name}.apk"
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
