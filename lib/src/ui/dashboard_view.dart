@@ -1,7 +1,6 @@
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:io';
 import '../providers/tuya_provider.dart';
 import '../providers/charging_session_provider.dart';
 import '../providers/settings_provider.dart';
@@ -10,6 +9,7 @@ import '../api/api_client.dart';
 
 import 'package:lucide_icons/lucide_icons.dart';
 import 'vehicle_management_view.dart';
+import '../utils/auth_image_provider.dart';
 
 class DashboardView extends ConsumerWidget {
   const DashboardView({super.key});
@@ -42,7 +42,6 @@ class DashboardView extends ConsumerWidget {
                     orElse: () => {'value': 0})['value'] /
                 10.0;
 
-            final activeVehicle = ref.read(activeVehicleProvider);
 
             // Calculation moved to background service to prevent isolate race condition
 
@@ -50,42 +49,6 @@ class DashboardView extends ConsumerWidget {
 
             return Scaffold(
               backgroundColor: const Color(0xFF020617),
-              appBar: AppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                actions: [
-                  PopupMenuButton<String>(
-                    icon: const Icon(LucideIcons.moreVertical, color: Color(0xFF94A3B8)),
-                    color: const Color(0xFF0F172A),
-                    onSelected: (value) async {
-                      if (value == 'vehicles') {
-                        Navigator.restorablePushNamed(context, '/vehicles');
-                      } else if (value == 'settings') {
-                        Navigator.restorablePushNamed(context, '/settings');
-                      } else if (value == 'logout') {
-                        await ApiClient.logout();
-                        if (context.mounted) {
-                          Navigator.pushReplacementNamed(context, '/login');
-                        }
-                      }
-                    },
-                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                      const PopupMenuItem<String>(
-                        value: 'vehicles',
-                        child: Text('Manajemen Kendaraan', style: TextStyle(color: Colors.white)),
-                      ),
-                      const PopupMenuItem<String>(
-                        value: 'settings',
-                        child: Text('Pengaturan API', style: TextStyle(color: Colors.white)),
-                      ),
-                      const PopupMenuItem<String>(
-                        value: 'logout',
-                        child: Text('Logout', style: TextStyle(color: Colors.redAccent)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
               body: RefreshIndicator(
                 color: const Color(0xFF10B981), // emerald-500
                 backgroundColor: const Color(0xFF0F172A), // slate-900
@@ -115,42 +78,6 @@ class DashboardView extends ConsumerWidget {
           loading: () => _buildModernLoading(),
           error: (err, stack) => Scaffold(
             backgroundColor: const Color(0xFF020617),
-            appBar: AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              actions: [
-                PopupMenuButton<String>(
-                  icon: const Icon(LucideIcons.moreVertical, color: Color(0xFF94A3B8)),
-                  color: const Color(0xFF0F172A),
-                  onSelected: (value) async {
-                    if (value == 'vehicles') {
-                      Navigator.restorablePushNamed(context, '/vehicles');
-                    } else if (value == 'settings') {
-                      Navigator.restorablePushNamed(context, '/settings');
-                    } else if (value == 'logout') {
-                      await ApiClient.logout();
-                      if (context.mounted) {
-                        Navigator.pushReplacementNamed(context, '/login');
-                      }
-                    }
-                  },
-                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                    const PopupMenuItem<String>(
-                      value: 'vehicles',
-                      child: Text('Manajemen Kendaraan', style: TextStyle(color: Colors.white)),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'settings',
-                      child: Text('Pengaturan API', style: TextStyle(color: Colors.white)),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'logout',
-                      child: Text('Logout', style: TextStyle(color: Colors.redAccent)),
-                    ),
-                  ],
-                ),
-              ],
-            ),
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
@@ -159,10 +86,6 @@ class DashboardView extends ConsumerWidget {
                   children: [
                     const Icon(LucideIcons.alertCircle,
                         color: Colors.redAccent, size: 48),
-                    const SizedBox(height: 16),
-                    Text(err.toString(),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.redAccent)),
                     const SizedBox(height: 24),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -275,7 +198,6 @@ class DashboardView extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-          // Vehicle image with glow effect
           Stack(
             alignment: Alignment.center,
             children: [
@@ -302,16 +224,16 @@ class DashboardView extends ConsumerWidget {
                 height: 280,
                 child: Center(
                   child: activeVehicle?.imageUrl != null
-                      ? Image.file(
-                          File(activeVehicle!.imageUrl!),
+                      ? Image(
+                          image: AuthNetworkImage('${ApiClient.baseUrl}${activeVehicle!.imageUrl}'),
                           fit: BoxFit.contain,
                         )
                       : Image.asset(
                           'assets/images/motor.png',
                           fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) => Icon(
-                            LucideIcons.car, 
-                            size: 140, 
+                            LucideIcons.car,
+                            size: 140,
                             color: Colors.grey.shade800
                           ),
                         ),
@@ -428,11 +350,11 @@ class DashboardView extends ConsumerWidget {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                 decoration: const InputDecoration(
-                  border: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF10B981), width: 2)),
-                  filled: false,
-                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)), borderSide: BorderSide.none),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)), borderSide: BorderSide(color: Color(0xFF10B981))),
+                  filled: true, fillColor: Color(0xFF1E293B),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
               ),
               const SizedBox(height: 32),
@@ -502,11 +424,11 @@ class DashboardView extends ConsumerWidget {
           textAlign: TextAlign.left,
           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
           decoration: const InputDecoration(
-            border: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF10B981), width: 2)),
-            filled: false,
-            contentPadding: EdgeInsets.symmetric(vertical: 8),
+            border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)), borderSide: BorderSide.none),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)), borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)), borderSide: BorderSide(color: Color(0xFF10B981))),
+            filled: true, fillColor: Color(0xFF1E293B),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
       ],
@@ -839,7 +761,7 @@ class DashboardView extends ConsumerWidget {
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold)),
                         const SizedBox(height: 2),
-                        Text('Model ID: ${activeVehicle.evModelId}',
+                        Text(activeVehicle.evBrand != null ? '${activeVehicle.evBrand} ${activeVehicle.evModelName}' : 'Model ID: ${activeVehicle.evModelId}',
                             style: const TextStyle(
                                 color: Color(0xFF94A3B8), // slate-400
                                 fontSize: 12)),
@@ -914,21 +836,36 @@ class DashboardView extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          const Divider(color: Color(0xFF1E293B)), // slate-800
-          const SizedBox(height: 16),
-          _buildInputField('TARGET PENGISIAN (%)',
-              '${sessionState.persenTarget.toStringAsFixed(0)}%',
-              isReadOnly: true,
-              onTap: () => _showEditDialog(
-                  context,
-                  'Target (%)',
-                  sessionState.persenTarget.toStringAsFixed(0),
-                  (val) => ref
-                      .read(chargingSessionProvider.notifier)
-                      .updatePersenTargetLocal(double.parse(val)))),
-          const SizedBox(height: 16),
           if (!settingsState.useRealtime) ...[
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildInputField('BATERAI AWAL (%)',
+                      sessionState.persenAwal.toStringAsFixed(0),
+                      onTap: () => _showEditDialog(
+                          context,
+                          'Baterai Awal (%)',
+                          sessionState.persenAwal.toStringAsFixed(0),
+                          (val) => ref
+                              .read(chargingSessionProvider.notifier)
+                              .updatePersenAwalLocal(double.parse(val)))),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildInputField('TARGET (%)',
+                      sessionState.persenTarget.toStringAsFixed(0),
+                      onTap: () => _showEditDialog(
+                          context,
+                          'Target Pengisian (%)',
+                          sessionState.persenTarget.toStringAsFixed(0),
+                          (val) => ref
+                              .read(chargingSessionProvider.notifier)
+                              .updatePersenTargetLocal(double.parse(val)))),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
@@ -965,47 +902,47 @@ class DashboardView extends ConsumerWidget {
                                 .updateEfisiensi(double.parse(val))))),
               ],
             ),
-            const SizedBox(height: 24),
           ],
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: const Color(0xFF0F172A), // slate-900
-                    side: const BorderSide(color: Color(0xFF1E293B)), // slate-800
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+          const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: const Color(0xFF0F172A), // slate-900
+                      side: const BorderSide(color: Color(0xFF1E293B)), // slate-800
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () =>
+                        ref.read(chargingSessionProvider.notifier).stopSession(),
+                    icon: const Icon(LucideIcons.refreshCcw,
+                        color: Color(0xFFCBD5E1), size: 14), // slate-300
+                    label: const Text('Reset Sesi',
+                        style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, fontWeight: FontWeight.w500)),
                   ),
-                  onPressed: () =>
-                      ref.read(chargingSessionProvider.notifier).stopSession(),
-                  icon: const Icon(LucideIcons.refreshCcw,
-                      color: Color(0xFFCBD5E1), size: 14), // slate-300
-                  label: const Text('Reset Sesi',
-                      style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, fontWeight: FontWeight.w500)),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: const Color(0xFF0F172A), // slate-900
-                    side: const BorderSide(color: Color(0xFF1E293B)), // slate-800
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: const Color(0xFF0F172A), // slate-900
+                      side: const BorderSide(color: Color(0xFF1E293B)), // slate-800
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () =>
+                        Navigator.restorablePushNamed(context, '/settings'),
+                    icon: const Icon(LucideIcons.settings,
+                        color: Color(0xFFCBD5E1), size: 14), // slate-300
+                    label: const Text('Pengaturan',
+                        style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, fontWeight: FontWeight.w500)),
                   ),
-                  onPressed: () =>
-                      Navigator.restorablePushNamed(context, '/settings'),
-                  icon: const Icon(LucideIcons.settings,
-                      color: Color(0xFFCBD5E1), size: 14), // slate-300
-                  label: const Text('Pengaturan',
-                      style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, fontWeight: FontWeight.w500)),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );
@@ -1079,11 +1016,11 @@ class DashboardView extends ConsumerWidget {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                 decoration: const InputDecoration(
-                  border: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF10B981), width: 2)),
-                  filled: false,
-                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)), borderSide: BorderSide.none),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)), borderSide: BorderSide(color: Color(0xFF10B981))),
+                  filled: true, fillColor: Color(0xFF1E293B),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
               ),
               const SizedBox(height: 32),

@@ -173,7 +173,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
           initialValue: value,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           style: const TextStyle(color: Colors.white, fontSize: 16),
-          onChanged: onChanged,
+          onChanged: onChanged, decoration: InputDecoration(filled: true, fillColor: const Color(0xFF1E293B), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF10B981))), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
         ),
       ],
     );
@@ -185,7 +185,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
       controller: controller,
       obscureText: obscureText,
       style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
+      decoration: InputDecoration(labelStyle: const TextStyle(color: Color(0xFF94A3B8)), filled: true, fillColor: const Color(0xFF1E293B), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF10B981))), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         labelText: label,
       ),
     );

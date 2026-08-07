@@ -2,12 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:mime/mime.dart';
 import 'package:http_parser/http_parser.dart';
+import "package:shared_preferences/shared_preferences.dart";
 import 'dart:io';
 import '../api/api_client.dart';
 
 class Vehicle {
   final String id;
   final String evModelId;
+  final String? evBrand;
+  final String? evModelName;
   final String name;
   final String? imageUrl;
   final bool isActive;
@@ -29,6 +32,8 @@ class Vehicle {
   Vehicle({
     required this.id,
     required this.evModelId,
+    this.evBrand,
+    this.evModelName,
     required this.name,
     this.imageUrl,
     this.isActive = false,
@@ -44,10 +49,12 @@ class Vehicle {
     this.customEfisiensiCharger,
   });
 
-  factory Vehicle.fromMap(Map<String, dynamic> map) {
+  factory Vehicle.fromMap(Map<String, dynamic> map, {Map<String, dynamic>? modelData}) {
     return Vehicle(
       id: map['id'],
-      evModelId: map['evModelId'] ?? map['ev_model_id'], // fallback local
+      evModelId: map['evModelId'] ?? map['ev_model_id'],
+      evBrand: modelData?['brand'],
+      evModelName: modelData?['model'],
       name: map['name'] ?? '',
       imageUrl: map['imageUrl'] ?? map['image_url'], // fallback local
       isActive: (map['isActive'] == true || map['isActive'] == 1 || map['is_active'] == 1),
@@ -105,8 +112,19 @@ class Vehicle {
   }
 }
 
+final evModelsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  try {
+    final res = await ApiClient.instance.get('/api/vehicles/models');
+    if (res.statusCode == 200) {
+      return (res.data as List).cast<Map<String, dynamic>>();
+    }
+  } catch (e) {}
+  return [];
+});
+
 class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
-  VehicleNotifier() : super(const AsyncValue.loading()) {
+  final Ref ref;
+  VehicleNotifier(this.ref) : super(const AsyncValue.loading()) {
     loadVehicles();
   }
 
@@ -118,10 +136,18 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
         return;
       }
 
+      // Load EV Models mapping
+      final modelsRes = await ApiClient.instance.get('/api/vehicles/models');
+      final modelsList = (modelsRes.data as List).cast<Map<String, dynamic>>();
+      final modelMap = {for (var m in modelsList) m['id'] as String: m};
+
       final response = await ApiClient.instance.get('/api/vehicles/user/$userId');
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> data = response.data;
-        final vehicles = data.map((map) => Vehicle.fromMap(map)).toList();
+        final vehicles = data.map((map) {
+          final modelId = map['evModelId'] ?? map['ev_model_id'];
+          return Vehicle.fromMap(map, modelData: modelMap[modelId]);
+        }).toList();
         state = AsyncValue.data(vehicles);
       } else {
         state = const AsyncValue.data([]);
@@ -151,10 +177,44 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
       );
 
       await loadVehicles();
+      state.whenData((vehicles) async {
+        try {
+          final active = vehicles.firstWhere((v) => v.isActive);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setDouble("activeVehicleVolt", active.customBatteryVolt ?? active.batteryVolt);
+          await prefs.setDouble("activeVehicleAh", active.customBatteryAh ?? active.batteryAh);
+        } catch (_) {}
+      });
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
   }
+  Future<void> addCustomVehicle({
+    required String name,
+    required String brand,
+    required String model,
+    required double batteryVolt,
+    required double batteryAh,
+    required double efisiensiCharger,
+  }) async {
+    try {
+      final evModelId = "custom_${DateTime.now().millisecondsSinceEpoch}";
+      final formDataModel = FormData.fromMap({
+        "id": evModelId,
+        "brand": brand,
+        "model": model,
+        "batteryVolt": batteryVolt,
+        "batteryAh": batteryAh,
+        "efisiensiCharger": efisiensiCharger,
+      });
+      await ApiClient.instance.post("/api/vehicles/models", data: formDataModel, options: Options(contentType: "multipart/form-data"));
+      await addVehicle(name, evModelId);
+      ref.invalidate(evModelsProvider);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
 
   Future<void> updateVehicleImage(String id, String imagePath) async {
     try {
@@ -178,6 +238,14 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
       );
 
       await loadVehicles();
+      state.whenData((vehicles) async {
+        try {
+          final active = vehicles.firstWhere((v) => v.isActive);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setDouble("activeVehicleVolt", active.customBatteryVolt ?? active.batteryVolt);
+          await prefs.setDouble("activeVehicleAh", active.customBatteryAh ?? active.batteryAh);
+        } catch (_) {}
+      });
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -206,6 +274,14 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
       );
 
       await loadVehicles();
+      state.whenData((vehicles) async {
+        try {
+          final active = vehicles.firstWhere((v) => v.isActive);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setDouble("activeVehicleVolt", active.customBatteryVolt ?? active.batteryVolt);
+          await prefs.setDouble("activeVehicleAh", active.customBatteryAh ?? active.batteryAh);
+        } catch (_) {}
+      });
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -215,6 +291,14 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
     try {
       await ApiClient.instance.delete('/api/vehicles/user/$id');
       await loadVehicles();
+      state.whenData((vehicles) async {
+        try {
+          final active = vehicles.firstWhere((v) => v.isActive);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setDouble("activeVehicleVolt", active.customBatteryVolt ?? active.batteryVolt);
+          await prefs.setDouble("activeVehicleAh", active.customBatteryAh ?? active.batteryAh);
+        } catch (_) {}
+      });
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -235,6 +319,14 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
       // Ideally backend handles making others false.
       // If not, we might need a separate call, but the standard pattern is backend logic handles unique active states.
       await loadVehicles();
+      state.whenData((vehicles) async {
+        try {
+          final active = vehicles.firstWhere((v) => v.isActive);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setDouble("activeVehicleVolt", active.customBatteryVolt ?? active.batteryVolt);
+          await prefs.setDouble("activeVehicleAh", active.customBatteryAh ?? active.batteryAh);
+        } catch (_) {}
+      });
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -243,7 +335,7 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
 
 final vehicleProvider =
     StateNotifierProvider<VehicleNotifier, AsyncValue<List<Vehicle>>>((ref) {
-  return VehicleNotifier();
+  return VehicleNotifier(ref);
 });
 
 final activeVehicleProvider = Provider<Vehicle?>((ref) {

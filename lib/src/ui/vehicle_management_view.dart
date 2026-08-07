@@ -8,6 +8,9 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/vehicle_provider.dart';
 
+import '../utils/auth_image_provider.dart';
+import "add_vehicle_sheet.dart";
+import "../api/api_client.dart";
 class VehicleManagementView extends ConsumerStatefulWidget {
   const VehicleManagementView({super.key});
 
@@ -18,7 +21,6 @@ class VehicleManagementView extends ConsumerStatefulWidget {
 }
 
 class _VehicleManagementViewState extends ConsumerState<VehicleManagementView> {
-  bool _isSaving = false;
 
   @override
   Widget build(BuildContext context) {
@@ -90,8 +92,8 @@ class _VehicleManagementViewState extends ConsumerState<VehicleManagementView> {
               if (vehicle.imageUrl != null)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.file(
-                    File(vehicle.imageUrl!),
+                  child: Image(
+                    image: AuthNetworkImage('${ApiClient.baseUrl}${vehicle.imageUrl}'),
                     width: 60,
                     height: 60,
                     fit: BoxFit.cover,
@@ -118,7 +120,7 @@ class _VehicleManagementViewState extends ConsumerState<VehicleManagementView> {
                             color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.bold)),
-                    Text('Model ID: ${vehicle.evModelId}',
+                    Text(vehicle.evBrand != null ? '${vehicle.evBrand} ${vehicle.evModelName}' : 'Model ID: ${vehicle.evModelId}',
                         style: const TextStyle(
                             color: Color(0xFF94A3B8), fontSize: 12)), // slate-400
                     if (vehicle.isActive)
@@ -218,115 +220,11 @@ class _VehicleManagementViewState extends ConsumerState<VehicleManagementView> {
   }
 
   void _showAddVehicleDialog(BuildContext context, WidgetRef ref) {
-    final nameController = TextEditingController();
-    final modelIdController = TextEditingController();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF0F172A), // slate-900
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 24),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF334155), // slate-700
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const Text(
-                    'Tambah Kendaraan',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  TextField(
-                    controller: nameController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Nama Kendaraan',
-                      border: UnderlineInputBorder(),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF1E293B)),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
-                      ),
-                      filled: false,
-                      contentPadding: EdgeInsets.symmetric(vertical: 8),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: modelIdController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Model ID (contoh: uwinfly_t3)',
-                      border: UnderlineInputBorder(),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF1E293B)),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
-                      ),
-                      filled: false,
-                      contentPadding: EdgeInsets.symmetric(vertical: 8),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF059669), // emerald-600
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: _isSaving ? null : () async {
-                      if (nameController.text.isNotEmpty &&
-                          modelIdController.text.isNotEmpty) {
-                        setModalState(() => _isSaving = true);
-                        try {
-                          await ref
-                              .read(vehicleProvider.notifier)
-                              .addVehicle(nameController.text, modelIdController.text);
-                          if (context.mounted) Navigator.pop(context);
-                        } finally {
-                          if (mounted) setModalState(() => _isSaving = false);
-                        }
-                      }
-                    },
-                    child: _isSaving
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text('Simpan',
-                            style: TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+      builder: (context) => const AddVehicleSheet(),
     );
   }
 
@@ -456,15 +354,11 @@ class _VehicleManagementViewState extends ConsumerState<VehicleManagementView> {
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        border: const UnderlineInputBorder(),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFF1E293B)),
-        ),
-        focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
-        ),
-        filled: false,
-        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF10B981))),
+        filled: true, fillColor: const Color(0xFF1E293B), labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }

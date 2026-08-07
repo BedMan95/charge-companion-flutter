@@ -8,7 +8,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/tuya_api.dart';
-import '../db/database_helper.dart';
 
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
@@ -150,20 +149,9 @@ void onStart(ServiceInstance service) async {
               final useRealtime = prefs.getBool('useRealtime') ?? true;
 
               if (useRealtime) {
-                final db = await DatabaseHelper.instance.database;
-                final maps = await db.rawQuery('''
-                  SELECT uv.*, em.battery_volt, em.battery_ah, em.efisiensi_charger
-                  FROM user_vehicles uv
-                  LEFT JOIN ev_models em ON uv.ev_model_id = em.id
-                  WHERE uv.is_active = 1
-                  LIMIT 1
-                ''');
-                if (maps.isNotEmpty) {
-                  final map = maps.first;
-                  final v = (map['custom_battery_volt'] ?? map['battery_volt'] ?? 72) as num;
-                  final ah = (map['custom_battery_ah'] ?? map['battery_ah'] ?? 38) as num;
-                  batCapacityKwh = (v.toDouble() * ah.toDouble()) / 1000.0;
-                }
+                final v = prefs.getDouble('activeVehicleVolt') ?? 72.0;
+                final ah = prefs.getDouble('activeVehicleAh') ?? 38.0;
+                batCapacityKwh = (v * ah) / 1000.0;
               }
 
               if (batCapacityKwh == 0.0) {
