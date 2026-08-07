@@ -68,7 +68,7 @@ gradle.taskGraph.whenReady { taskGraph ->
 
 android {
     namespace = "id.my.fornubi.chargecompanion"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -82,7 +82,7 @@ android {
 
     defaultConfig {
         applicationId = "id.my.fornubi.chargecompanion"
-        minSdk = flutter.minSdkVersion
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         
         def date = new Date()
