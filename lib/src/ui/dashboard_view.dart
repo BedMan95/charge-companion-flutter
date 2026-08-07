@@ -47,13 +47,11 @@ class DashboardView extends ConsumerWidget {
 
             final metrics = sessionState;
 
-            return Scaffold(
-              backgroundColor: const Color(0xFF020617),
-              body: RefreshIndicator(
+            return RefreshIndicator(
                 color: const Color(0xFF10B981), // emerald-500
                 backgroundColor: const Color(0xFF0F172A), // slate-900
                 onRefresh: () async {
-                  // Riverpod handles periodic refresh
+                  ref.read(tuyaStatusProvider.notifier).refresh();
                 },
                 child: ListView(
                   padding:
@@ -72,7 +70,6 @@ class DashboardView extends ConsumerWidget {
                         context, ref, sessionState, settingsState),
                   ],
                 ),
-              ),
             );
           },
           loading: () => _buildModernLoading(),
@@ -86,6 +83,14 @@ class DashboardView extends ConsumerWidget {
                   children: [
                     const Icon(LucideIcons.alertCircle,
                         color: Colors.redAccent, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      err.toString(),
+                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                      textAlign: TextAlign.center,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 24),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -227,6 +232,11 @@ class DashboardView extends ConsumerWidget {
                       ? Image(
                           image: AuthNetworkImage('${ApiClient.baseUrl}${activeVehicle!.imageUrl}'),
                           fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            LucideIcons.car,
+                            size: 140,
+                            color: Colors.grey.shade800,
+                          ),
                         )
                       : Image.asset(
                           'assets/images/motor.png',
@@ -241,6 +251,20 @@ class DashboardView extends ConsumerWidget {
               ),
             ],
           ),
+          if (activeVehicle != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              activeVehicle.name,
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            if (activeVehicle.evBrand != null)
+              Text(
+                '${activeVehicle.evBrand} ${activeVehicle.evModelName}',
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+          ],
           const SizedBox(height: 24),
           // Progress bar
           Container(
@@ -253,7 +277,7 @@ class DashboardView extends ConsumerWidget {
             ),
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
-              widthFactor: (ref.watch(chargingSessionProvider).persenRealtime / 100).clamp(0.0, 1.0),
+              widthFactor: (ref.watch(chargingSessionProvider).persenRealtime / ref.watch(chargingSessionProvider).persenTarget).clamp(0.0, 1.0),
               child: Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFF34D399), // emerald-400
@@ -288,7 +312,13 @@ class DashboardView extends ConsumerWidget {
                     ref.read(chargingSessionProvider.notifier);
 
                 if (!isCharging) {
-                  final settingsState = ref.read(settingsProvider); final activeVehicle = ref.read(activeVehicleProvider); _showPreChargeDialog(context, ref, ref.read(chargingSessionProvider), settingsState, activeVehicle);
+                  final settingsState = ref.read(settingsProvider);
+                  final activeVehicle = ref.read(activeVehicleProvider);
+                  _showPreChargeDialog(
+                    context, ref,
+                    ref.read(chargingSessionProvider),
+                    settingsState, activeVehicle,
+                  );
                 } else {
                   notifier.toggleRelay(false);
                   sessionNotifier.stopSession();
@@ -542,6 +572,7 @@ class DashboardView extends ConsumerWidget {
 
   Widget _buildPowerFlowSection(
       bool isCharging, double voltage, double current, double power, double usedEfficiency, ChargingMetricsState metrics) {
+    final maxPower = (power > 0 ? power * 1.2 : 2200.0); // ponytail: auto-scale, fallback 2200W
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -574,13 +605,13 @@ class DashboardView extends ConsumerWidget {
           _buildProgressBar(
               'Daya Input AC (PLN)',
               '${power.toStringAsFixed(1)} W',
-              power / 2200,
+              power / maxPower,
               const Color(0xFF3B82F6)), // blue-500
           const SizedBox(height: 24),
           _buildProgressBar(
               'Daya Output DC (Baterai)',
               '${(metrics.actualPowerToBatteryKw * 1000).toStringAsFixed(1)} W',
-              (metrics.actualPowerToBatteryKw * 1000) / 2200,
+              (metrics.actualPowerToBatteryKw * 1000) / maxPower,
               const Color(0xFF10B981)), // emerald-500
           const SizedBox(height: 24),
           Container(
