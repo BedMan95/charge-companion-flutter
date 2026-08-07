@@ -45,13 +45,21 @@ ext.currentBuildNumber = getBuildNumber()
 gradle.taskGraph.whenReady { taskGraph ->
     def hasAssembleOrBundle = taskGraph.allTasks.any { it.name.contains("assemble") || it.name.contains("bundle") }
     def isRelease = taskGraph.allTasks.any { it.name.toLowerCase().contains("release") }
-    
+
     // Only increment once per compilation, and only on Release builds to keep Debug in sync
     if (hasAssembleOrBundle && isRelease && !project.ext.has('buildNumberIncremented')) {
         def file = new File(projectDir, "build_number.txt")
         def current = file.exists() ? file.text.toInteger() : 1
-        def next = current + 1
+
+        // Reset to 1 if it's a new day
+        def dateStr = new java.text.SimpleDateFormat("yyyyMMdd").format(new Date())
+        def lastDateFile = new File(projectDir, "last_build_date.txt")
+        def lastDate = lastDateFile.exists() ? lastDateFile.text.trim() : ""
+
+        def next = (dateStr != lastDate) ? 1 : current + 1
+
         file.text = next.toString()
+        lastDateFile.text = dateStr
         project.ext.currentBuildNumber = next
         project.ext.buildNumberIncremented = true
     }
