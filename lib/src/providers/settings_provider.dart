@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../api/api_client.dart';
 
 class SettingsState {
   final double batteryVolt;
@@ -42,11 +43,26 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+
+    // Fetch tariff from CF backend
+    double remoteTariff = 1600.0;
+    try {
+      final userId = await ApiClient.getUserId();
+      if (userId != null) {
+        final response = await ApiClient.instance.get('/api/credentials/tariff/$userId');
+        if (response.statusCode == 200 && response.data != null) {
+          remoteTariff = (response.data['tariff'] as num).toDouble();
+        }
+      }
+    } catch (e) {
+      remoteTariff = prefs.getDouble('tarifPln') ?? 1600.0;
+    }
+
     state = SettingsState(
       batteryVolt: prefs.getDouble('batteryVolt') ?? 72.0,
       batteryAh: prefs.getDouble('batteryAh') ?? 38.0,
       efisiensiCharger: prefs.getDouble('efisiensiCharger') ?? 0.82,
-      tarifPln: prefs.getDouble('tarifPln') ?? 1600.0,
+      tarifPln: remoteTariff,
       useRealtime: prefs.getBool('useRealtime') ?? true,
     );
   }
@@ -75,6 +91,19 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   Future<void> updateTarifPln(double value) async {
     await _saveSettings(state.copyWith(tarifPln: value));
+
+    // Sync to CF backend
+    try {
+      final userId = await ApiClient.getUserId();
+      if (userId != null) {
+        await ApiClient.instance.post('/api/credentials/tariff', data: {
+          'userId': userId,
+          'tariff': value
+        });
+      }
+    } catch (e) {
+      // Background sync fail
+    }
   }
 
   Future<void> toggleRealtime(bool value) async {
