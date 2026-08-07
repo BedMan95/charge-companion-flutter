@@ -254,16 +254,15 @@ class DashboardView extends ConsumerWidget {
           if (activeVehicle != null) ...[
             const SizedBox(height: 12),
             Text(
-              activeVehicle.name,
-              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              activeVehicle.evBrand != null
+                  ? '${activeVehicle.evBrand} ${activeVehicle.evModelName}'
+                  : 'Model ID: ${activeVehicle.evModelId}',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
-            if (activeVehicle.evBrand != null)
-              Text(
-                '${activeVehicle.evBrand} ${activeVehicle.evModelName}',
-                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-                textAlign: TextAlign.center,
-              ),
           ],
           const SizedBox(height: 24),
           // Progress bar
