@@ -36,18 +36,30 @@ class TuyaApi {
     });
   }
 
-  static Future<Map<String, dynamic>?> getDeviceStatus() async {
+  static Future<Map<String, dynamic>> getDeviceStatus() async {
     try {
       final userId = await ApiClient.getUserId();
-      if (userId == null) return null;
+      if (userId == null) return {'error': 'User not logged in'};
 
       final response = await ApiClient.instance.get('/api/tuya/status/$userId');
       if (response.statusCode == 200 && response.data != null) {
-        return response.data; // Expected format: {'status': [...]}
+        if (response.data['success'] == true) {
+            if (response.data['data'] != null) {
+                final d = response.data['data'];
+                if (d['success'] == false) {
+                    return {'error': d['msg'] ?? 'Tuya API Error'};
+                }
+                if (d['result'] != null) {
+                    return {'status': d['result']};
+                }
+            } else if (response.data['result'] != null) {
+               return {'status': response.data['result']};
+            }
+        }
       }
-      return null;
+      return {'error': 'Kredensial atau format salah'};
     } catch (e) {
-      return null;
+      return {'error': e.toString()};
     }
   }
 

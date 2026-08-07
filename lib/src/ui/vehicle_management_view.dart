@@ -8,26 +8,36 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/vehicle_provider.dart';
 
-class VehicleManagementView extends ConsumerWidget {
+class VehicleManagementView extends ConsumerStatefulWidget {
   const VehicleManagementView({super.key});
 
   static const routeName = '/vehicles';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VehicleManagementView> createState() => _VehicleManagementViewState();
+}
+
+class _VehicleManagementViewState extends ConsumerState<VehicleManagementView> {
+  bool _isSaving = false;
+
+  @override
+  Widget build(BuildContext context) {
     final vehiclesState = ref.watch(vehicleProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF020617), // slate-950
       appBar: AppBar(
-        backgroundColor: const Color(0xFF020617),
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text('Manajemen Kendaraan',
             style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
-            icon: const Icon(LucideIcons.plus),
+            icon: const Icon(LucideIcons.plus, color: Colors.white),
             onPressed: () => _showAddVehicleDialog(context, ref),
           ),
         ],
@@ -215,96 +225,107 @@ class VehicleManagementView extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF0F172A), // slate-900
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF334155), // slate-700
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Padding(
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFF0F172A), // slate-900
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              const Text(
-                'Tambah Kendaraan',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: nameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Nama Kendaraan',
-                  border: UnderlineInputBorder(),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF1E293B)),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF334155), // slate-700
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
                   ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
-                  ),
-                  filled: false,
-                  contentPadding: EdgeInsets.symmetric(vertical: 8),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: modelIdController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Model ID (contoh: uwinfly_t3)',
-                  border: UnderlineInputBorder(),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF1E293B)),
-                  ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
-                  ),
-                  filled: false,
-                  contentPadding: EdgeInsets.symmetric(vertical: 8),
-                ),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF059669), // emerald-600
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  if (nameController.text.isNotEmpty &&
-                      modelIdController.text.isNotEmpty) {
-                    ref
-                        .read(vehicleProvider.notifier)
-                        .addVehicle(nameController.text, modelIdController.text);
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('Simpan',
+                  const Text(
+                    'Tambah Kendaraan',
                     style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: nameController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Nama Kendaraan',
+                      border: UnderlineInputBorder(),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF1E293B)),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
+                      ),
+                      filled: false,
+                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: modelIdController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Model ID (contoh: uwinfly_t3)',
+                      border: UnderlineInputBorder(),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF1E293B)),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
+                      ),
+                      filled: false,
+                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF059669), // emerald-600
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: _isSaving ? null : () async {
+                      if (nameController.text.isNotEmpty &&
+                          modelIdController.text.isNotEmpty) {
+                        setModalState(() => _isSaving = true);
+                        try {
+                          await ref
+                              .read(vehicleProvider.notifier)
+                              .addVehicle(nameController.text, modelIdController.text);
+                          if (context.mounted) Navigator.pop(context);
+                        } finally {
+                          if (mounted) setModalState(() => _isSaving = false);
+                        }
+                      }
+                    },
+                    child: _isSaving
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('Simpan',
+                            style: TextStyle(
+                                color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

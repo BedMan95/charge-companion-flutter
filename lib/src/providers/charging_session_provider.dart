@@ -1,213 +1,212 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../api/api_client.dart';
+import 'tuya_provider.dart';
 
-class ChargingSessionState {
+class ChargingMetricsState {
+  final double powerInKw;
+  final double actualPowerToBatteryKw;
+  final double timeToChargeHours;
+  final double totalCost;
+  final double chargingEfficiency;
+  final double persenRealtime;
+  final String status; // ACTIVE, STOPPED, dll
+  final double accumulatedEnergyWh;
+  final double cost; // Total cost session
+
+  // Additional session params kept for UI
   final double persenAwal;
   final double persenTarget;
-  final double persenRealtime;
-  final double accumulatedEnergyKWh;
-  final int? startTimeMs;
-  final int? lastFetchTimeMs;
-  final List<double> powerHistoryKw;
-  final double smoothedPowerKw;
+  final String? sessionId;
 
-  const ChargingSessionState({
+  const ChargingMetricsState({
+    this.powerInKw = 0.0,
+    this.actualPowerToBatteryKw = 0.0,
+    this.timeToChargeHours = 0.0,
+    this.totalCost = 0.0,
+    this.chargingEfficiency = 0.82,
+    this.persenRealtime = 0.0,
+    this.status = 'IDLE',
+    this.accumulatedEnergyWh = 0.0,
+    this.cost = 0.0,
     this.persenAwal = 0.0,
     this.persenTarget = 100.0,
-    this.persenRealtime = 0.0,
-    this.accumulatedEnergyKWh = 0.0,
-    this.startTimeMs,
-    this.lastFetchTimeMs,
-    this.powerHistoryKw = const [],
-    this.smoothedPowerKw = 0.0,
+    this.sessionId,
   });
 
-  ChargingSessionState copyWith({
+  ChargingMetricsState copyWith({
+    double? powerInKw,
+    double? actualPowerToBatteryKw,
+    double? timeToChargeHours,
+    double? totalCost,
+    double? chargingEfficiency,
+    double? persenRealtime,
+    String? status,
+    double? accumulatedEnergyWh,
+    double? cost,
     double? persenAwal,
     double? persenTarget,
-    double? persenRealtime,
-    double? accumulatedEnergyKWh,
-    int? startTimeMs,
-    int? lastFetchTimeMs,
-    List<double>? powerHistoryKw,
-    double? smoothedPowerKw,
+    String? sessionId,
   }) {
-    return ChargingSessionState(
+    return ChargingMetricsState(
+      powerInKw: powerInKw ?? this.powerInKw,
+      actualPowerToBatteryKw: actualPowerToBatteryKw ?? this.actualPowerToBatteryKw,
+      timeToChargeHours: timeToChargeHours ?? this.timeToChargeHours,
+      totalCost: totalCost ?? this.totalCost,
+      chargingEfficiency: chargingEfficiency ?? this.chargingEfficiency,
+      persenRealtime: persenRealtime ?? this.persenRealtime,
+      status: status ?? this.status,
+      accumulatedEnergyWh: accumulatedEnergyWh ?? this.accumulatedEnergyWh,
+      cost: cost ?? this.cost,
       persenAwal: persenAwal ?? this.persenAwal,
       persenTarget: persenTarget ?? this.persenTarget,
-      persenRealtime: persenRealtime ?? this.persenRealtime,
-      accumulatedEnergyKWh: accumulatedEnergyKWh ?? this.accumulatedEnergyKWh,
-      startTimeMs: startTimeMs ?? this.startTimeMs,
-      lastFetchTimeMs: lastFetchTimeMs ?? this.lastFetchTimeMs,
-      powerHistoryKw: powerHistoryKw ?? this.powerHistoryKw,
-      smoothedPowerKw: smoothedPowerKw ?? this.smoothedPowerKw,
+      sessionId: sessionId ?? this.sessionId,
     );
   }
 }
 
-class ChargingSessionNotifier extends StateNotifier<ChargingSessionState> {
-  ChargingSessionNotifier() : super(const ChargingSessionState()) {
-    _loadState();
-    _syncTimer = Timer.periodic(const Duration(seconds: 5), (_) => _syncFromPrefs());
-  }
+class ChargingSessionNotifier extends StateNotifier<ChargingMetricsState> {
+  final Ref ref;
+  Timer? _pollingTimer;
 
-  Timer? _syncTimer;
+  ChargingSessionNotifier(this.ref) : super(const ChargingMetricsState()) {
+    // Attempt to resume session polling if we have active session locally (or fetch latest active from history)
+    _fetchLatestSession();
+  }
 
   @override
   void dispose() {
-    _syncTimer?.cancel();
+    _pollingTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _syncFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.reload(); // Force reload from disk to get background service updates
-    final powerHistoryStr = prefs.getString('powerHistoryKw') ?? '';
-    final powerHistory = powerHistoryStr.isEmpty
-        ? <double>[]
-        : powerHistoryStr.split(',').map((e) => double.tryParse(e) ?? 0.0).toList();
+  Future<void> _fetchLatestSession() async {
+    try {
+      final userId = await ApiClient.getUserId();
+      if (userId == null) return;
 
-    // Only update if something changed to avoid unnecessary rebuilds
-    final startTime = prefs.getInt('startTimeMs');
-    final pReal = prefs.getDouble('persenRealtime') ?? 0.0;
-    final accumulated = prefs.getDouble('accumulatedEnergyKWh') ?? 0.0;
-
-    // Always update to ensure we don't drop precision from background updates
-    state = ChargingSessionState(
-      persenAwal: prefs.getDouble('persenAwal') ?? 0.0,
-      persenTarget: prefs.getDouble('persenTarget') ?? 100.0,
-      persenRealtime: pReal,
-      accumulatedEnergyKWh: accumulated,
-      startTimeMs: startTime,
-      lastFetchTimeMs: prefs.getInt('lastFetchTimeMs'),
-      powerHistoryKw: powerHistory,
-      smoothedPowerKw: prefs.getDouble('smoothedPowerKw') ?? 0.0,
-    );
-  }
-
-  Future<void> _loadState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final powerHistoryStr = prefs.getString('powerHistoryKw') ?? '';
-    final powerHistory = powerHistoryStr.isEmpty
-        ? <double>[]
-        : powerHistoryStr.split(',').map((e) => double.tryParse(e) ?? 0.0).toList();
-
-    state = ChargingSessionState(
-      persenAwal: prefs.getDouble('persenAwal') ?? 0.0,
-      persenTarget: prefs.getDouble('persenTarget') ?? 100.0,
-      persenRealtime: prefs.getDouble('persenRealtime') ?? 0.0,
-      accumulatedEnergyKWh: prefs.getDouble('accumulatedEnergyKWh') ?? 0.0,
-      startTimeMs: prefs.getInt('startTimeMs'),
-      lastFetchTimeMs: prefs.getInt('lastFetchTimeMs'),
-      powerHistoryKw: powerHistory,
-      smoothedPowerKw: prefs.getDouble('smoothedPowerKw') ?? 0.0,
-    );
-  }
-
-  Future<void> _saveState(ChargingSessionState newState) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('persenAwal', newState.persenAwal);
-    await prefs.setDouble('persenTarget', newState.persenTarget);
-    await prefs.setDouble('persenRealtime', newState.persenRealtime);
-    await prefs.setDouble(
-        'accumulatedEnergyKWh', newState.accumulatedEnergyKWh);
-    if (newState.startTimeMs != null) {
-      await prefs.setInt('startTimeMs', newState.startTimeMs!);
-    } else {
-      await prefs.remove('startTimeMs');
+      final res = await ApiClient.instance.get('/api/sessions/history/$userId?limit=1');
+      if (res.statusCode == 200 && (res.data as List).isNotEmpty) {
+        final latest = res.data[0];
+        if (latest['status'] == 'ACTIVE') {
+          state = state.copyWith(
+            sessionId: latest['id'].toString(),
+            status: 'ACTIVE',
+            persenAwal: latest['persenAwal']?.toDouble(),
+            persenTarget: latest['persenTarget']?.toDouble(),
+          );
+          _startPolling();
+        } else {
+          state = state.copyWith(
+            status: latest['status'],
+            persenRealtime: latest['persenAwal']?.toDouble() ?? 0.0,
+          );
+        }
+      }
+    } catch (e) {
+      // Ignored
     }
-    if (newState.lastFetchTimeMs != null) {
-      await prefs.setInt('lastFetchTimeMs', newState.lastFetchTimeMs!);
-    } else {
-      await prefs.remove('lastFetchTimeMs');
+  }
+
+  void _startPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) => _pollMetrics());
+  }
+
+  Future<void> _pollMetrics() async {
+    if (state.sessionId == null || state.status != 'ACTIVE') return;
+
+    try {
+      // Get current power from TuyaProvider first
+      final tuyaData = ref.read(tuyaStatusProvider).value ?? [];
+      final curPower = tuyaData.firstWhere(
+              (s) => s['code'] == 'cur_power',
+          orElse: () => {'value': 0})['value'] / 10.0;
+
+      final res = await ApiClient.instance.get('/api/sessions/metrics/${state.sessionId}?watt=$curPower');
+
+      if (res.statusCode == 200 && res.data != null) {
+        final d = res.data;
+        state = state.copyWith(
+          powerInKw: d['powerInKw']?.toDouble() ?? 0.0,
+          actualPowerToBatteryKw: d['actualPowerToBatteryKw']?.toDouble() ?? 0.0,
+          timeToChargeHours: d['timeToChargeHours']?.toDouble() ?? 0.0,
+          totalCost: d['totalCost']?.toDouble() ?? 0.0,
+          chargingEfficiency: d['chargingEfficiency']?.toDouble() ?? 0.82,
+          persenRealtime: d['persenRealtime']?.toDouble() ?? state.persenAwal,
+          status: d['status'] ?? 'ACTIVE',
+          accumulatedEnergyWh: d['accumulatedEnergy']?.toDouble() ?? 0.0,
+          cost: d['cost']?.toDouble() ?? 0.0,
+        );
+
+        if (d['status'] != 'ACTIVE') {
+           _pollingTimer?.cancel();
+        }
+      }
+    } catch (e) {
+      // Silent error for background polling
     }
-    await prefs.setString('powerHistoryKw', newState.powerHistoryKw.join(','));
-    await prefs.setDouble('smoothedPowerKw', newState.smoothedPowerKw);
-    state = newState;
   }
 
-  Future<void> updatePersenAwal(double value) async {
-    await _saveState(state.copyWith(persenAwal: value, persenRealtime: value));
-  }
+  Future<void> startSession({
+    required String vehicleId,
+    required double persenAwal,
+    required double persenTarget,
+    required double batteryVolt,
+    required double batteryAh,
+    required double efisiensiCharger,
+  }) async {
+    try {
+      final userId = await ApiClient.getUserId();
+      if (userId == null) throw Exception('Not logged in');
 
-  Future<void> updatePersenTarget(double value) async {
-    await _saveState(state.copyWith(persenTarget: value));
-  }
+      final res = await ApiClient.instance.post('/api/sessions/start', data: {
+        'userId': userId,
+        'vehicleId': vehicleId,
+        'persenAwal': persenAwal,
+        'persenTarget': persenTarget,
+        'batteryVolt': batteryVolt,
+        'batteryAh': batteryAh,
+        'efisiensiCharger': efisiensiCharger,
+      });
 
-  Future<void> startSession() async {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await _saveState(state.copyWith(
-      startTimeMs: now,
-      lastFetchTimeMs: now,
-      accumulatedEnergyKWh: 0.0,
-      persenRealtime: state.persenAwal,
-    ));
+      if (res.statusCode == 200 && res.data != null) {
+        state = state.copyWith(
+          sessionId: res.data['id'].toString(),
+          status: 'ACTIVE',
+          persenAwal: persenAwal,
+          persenTarget: persenTarget,
+          persenRealtime: persenAwal,
+        );
+        _startPolling();
+      }
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> stopSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('startTimeMs');
-    await prefs.remove('lastFetchTimeMs');
-    state = ChargingSessionState(
-      persenAwal: state.persenAwal,
-      persenTarget: state.persenTarget,
-      persenRealtime: state.persenRealtime,
-      accumulatedEnergyKWh: state.accumulatedEnergyKWh,
-      startTimeMs: null,
-      lastFetchTimeMs: null,
-      powerHistoryKw: state.powerHistoryKw,
-      smoothedPowerKw: state.smoothedPowerKw,
-    );
-  }
-
-  Future<void> resetSession() async {
-    await _saveState(const ChargingSessionState());
-  }
-
-  Future<void> processRealtimeData(double currentPowerKw,
-      double batteryCapacityKwh, double efficiency) async {
-    if (state.startTimeMs == null) return; // Not charging
-
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final lastFetch = state.lastFetchTimeMs ?? now;
-
-    // To prevent rapid UI frame rendering from destroying the calculation with 0 multipliers,
-    // only process if at least 2 seconds have passed since last calculation.
-    if ((now - lastFetch) < 2000 && state.lastFetchTimeMs != null) return;
-
-    // Calculate elapsed hours since last fetch
-    final elapsedHours = (now - lastFetch) / (1000 * 3600);
-    if (elapsedHours <= 0 && state.lastFetchTimeMs != null) return;
-
-    // Calculate energy added in this interval
-    final energyAddedKwh = currentPowerKw * elapsedHours;
-    final newAccumulatedEnergy = state.accumulatedEnergyKWh + energyAddedKwh;
-
-    // Calculate new percentage
-    final energyDcCharged = newAccumulatedEnergy * efficiency;
-    final addedPercentage = (energyDcCharged / batteryCapacityKwh) * 100;
-    final newPersenRealtime =
-        (state.persenAwal + addedPercentage).clamp(0.0, state.persenTarget);
-
-    const maxHistory = 10;
-    final newHistory = List<double>.from(state.powerHistoryKw)..add(currentPowerKw);
-    if (newHistory.length > maxHistory) {
-      newHistory.removeAt(0);
+    try {
+      if (state.sessionId != null) {
+        await ApiClient.instance.post('/api/sessions/stop/${state.sessionId}');
+      }
+      _pollingTimer?.cancel();
+      state = state.copyWith(status: 'STOPPED_MANUAL');
+    } catch (e) {
+      // Ignored
     }
-    final smoothed = newHistory.isEmpty ? 0.0 : newHistory.reduce((a, b) => a + b) / newHistory.length;
+  }
 
-    await _saveState(state.copyWith(
-      accumulatedEnergyKWh: newAccumulatedEnergy,
-      persenRealtime: newPersenRealtime,
-      lastFetchTimeMs: now,
-      powerHistoryKw: newHistory,
-      smoothedPowerKw: smoothed,
-    ));
+  void updatePersenAwalLocal(double value) {
+    state = state.copyWith(persenAwal: value, persenRealtime: value);
+  }
+
+  void updatePersenTargetLocal(double value) {
+    state = state.copyWith(persenTarget: value);
   }
 }
 
 final chargingSessionProvider =
-    StateNotifierProvider<ChargingSessionNotifier, ChargingSessionState>((ref) {
-  return ChargingSessionNotifier();
+    StateNotifierProvider<ChargingSessionNotifier, ChargingMetricsState>((ref) {
+  return ChargingSessionNotifier(ref);
 });

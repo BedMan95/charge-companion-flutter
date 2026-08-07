@@ -1,3 +1,4 @@
+import 'ui/login_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -12,10 +13,11 @@ import 'settings/settings_controller.dart';
 class MyApp extends StatelessWidget {
   const MyApp({
     super.key,
-    required this.settingsController,
+    required this.settingsController, required this.hasToken,
   });
 
   final SettingsController settingsController;
+  final bool hasToken;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +33,7 @@ class MyApp extends StatelessWidget {
           // MaterialApp to restore the navigation stack when a user leaves and
           // returns to the app after it has been killed while running in the
           // background.
+          initialRoute: hasToken ? DashboardView.routeName : LoginView.routeName,
           restorationScopeId: 'app',
 
           // Provide the generated AppLocalizations to the MaterialApp. This
@@ -107,6 +110,8 @@ class MyApp extends StatelessWidget {
                     return const SettingsView();
                   case VehicleManagementView.routeName:
                     return const VehicleManagementView();
+                  case LoginView.routeName:
+                    return const LoginView();
                   case DashboardView.routeName:
                   default:
                     return const DashboardView();

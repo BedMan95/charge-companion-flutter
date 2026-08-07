@@ -24,16 +24,23 @@ class TuyaStatusNotifier extends StateNotifier<AsyncValue<List<dynamic>>> {
   Future<void> _fetchStatus() async {
     try {
       final data = await TuyaApi.getDeviceStatus();
-      if (data != null && data['status'] != null) {
+      if (data.containsKey('error')) {
+        state = AsyncValue.error(data['error'], StackTrace.current);
+      } else if (data['status'] != null) {
         state = AsyncValue.data(data['status']);
       } else {
         state = AsyncValue.error(
-            'Kredensial Tuya belum diatur atau tidak valid.',
+            'Kredensial Tuya belum diatur atau tidak valid (Response null atau format salah).',
             StackTrace.current);
       }
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      state = AsyncValue.error('Koneksi Error: ' + e.toString(), st);
     }
+  }
+
+  void refresh() {
+    state = const AsyncValue.loading();
+    _fetchStatus();
   }
 
   Future<void> toggleRelay(bool value) async {

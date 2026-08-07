@@ -6,15 +6,15 @@ import '../providers/tuya_provider.dart';
 import '../providers/charging_session_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/vehicle_provider.dart';
-import '../providers/metrics_provider.dart';
-import '../utils/charging_calculator.dart';
+import '../api/api_client.dart';
+
 import 'package:lucide_icons/lucide_icons.dart';
 import 'vehicle_management_view.dart';
 
 class DashboardView extends ConsumerWidget {
   const DashboardView({super.key});
 
-  static const routeName = '/';
+  static const routeName = '/dashboard';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,59 +46,137 @@ class DashboardView extends ConsumerWidget {
 
             // Calculation moved to background service to prevent isolate race condition
 
-            final metrics = ref.watch(metricsProvider);
+            final metrics = sessionState;
 
-            return RefreshIndicator(
-              color: const Color(0xFF10B981), // emerald-500
-              backgroundColor: const Color(0xFF0F172A), // slate-900
-              onRefresh: () async {
-                // Riverpod handles periodic refresh
-              },
-              child: ListView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                children: [
-                  _buildHeroSection(relayStatus, ref, context),
-                  const SizedBox(height: 32),
-                  _buildSummarySection(metrics, sessionState.accumulatedEnergyKWh, sessionState, settingsState),
-                  const SizedBox(height: 32),
-                  _buildPowerFlowSection(
-                      relayStatus, curVoltage, curCurrent, curPower, metrics.chargingEfficiency, metrics),
-                  const SizedBox(height: 32),
-                  _buildGarageSection(context, ref),
-                  const SizedBox(height: 32),
-                  _buildControlsSection(
-                      context, ref, sessionState, settingsState),
+            return Scaffold(
+              backgroundColor: const Color(0xFF020617),
+              appBar: AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                actions: [
+                  PopupMenuButton<String>(
+                    icon: const Icon(LucideIcons.moreVertical, color: Color(0xFF94A3B8)),
+                    color: const Color(0xFF0F172A),
+                    onSelected: (value) async {
+                      if (value == 'vehicles') {
+                        Navigator.restorablePushNamed(context, '/vehicles');
+                      } else if (value == 'settings') {
+                        Navigator.restorablePushNamed(context, '/settings');
+                      } else if (value == 'logout') {
+                        await ApiClient.logout();
+                        if (context.mounted) {
+                          Navigator.pushReplacementNamed(context, '/login');
+                        }
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'vehicles',
+                        child: Text('Manajemen Kendaraan', style: TextStyle(color: Colors.white)),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'settings',
+                        child: Text('Pengaturan API', style: TextStyle(color: Colors.white)),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'logout',
+                        child: Text('Logout', style: TextStyle(color: Colors.redAccent)),
+                      ),
+                    ],
+                  ),
                 ],
+              ),
+              body: RefreshIndicator(
+                color: const Color(0xFF10B981), // emerald-500
+                backgroundColor: const Color(0xFF0F172A), // slate-900
+                onRefresh: () async {
+                  // Riverpod handles periodic refresh
+                },
+                child: ListView(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                  children: [
+                    _buildHeroSection(relayStatus, ref, context),
+                    const SizedBox(height: 32),
+                    _buildSummarySection(metrics, sessionState.accumulatedEnergyWh / 1000, sessionState, settingsState),
+                    const SizedBox(height: 32),
+                    _buildPowerFlowSection(
+                        relayStatus, curVoltage, curCurrent, curPower, metrics.chargingEfficiency, metrics),
+                    const SizedBox(height: 32),
+                    _buildGarageSection(context, ref),
+                    const SizedBox(height: 32),
+                    _buildControlsSection(
+                        context, ref, sessionState, settingsState),
+                  ],
+                ),
               ),
             );
           },
           loading: () => _buildModernLoading(),
-          error: (err, stack) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(LucideIcons.alertCircle,
-                      color: Colors.redAccent, size: 48),
-                  const SizedBox(height: 16),
-                  Text(err.toString(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.redAccent)),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F172A), // slate-900
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+          error: (err, stack) => Scaffold(
+            backgroundColor: const Color(0xFF020617),
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              actions: [
+                PopupMenuButton<String>(
+                  icon: const Icon(LucideIcons.moreVertical, color: Color(0xFF94A3B8)),
+                  color: const Color(0xFF0F172A),
+                  onSelected: (value) async {
+                    if (value == 'vehicles') {
+                      Navigator.restorablePushNamed(context, '/vehicles');
+                    } else if (value == 'settings') {
+                      Navigator.restorablePushNamed(context, '/settings');
+                    } else if (value == 'logout') {
+                      await ApiClient.logout();
+                      if (context.mounted) {
+                        Navigator.pushReplacementNamed(context, '/login');
+                      }
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                    const PopupMenuItem<String>(
+                      value: 'vehicles',
+                      child: Text('Manajemen Kendaraan', style: TextStyle(color: Colors.white)),
                     ),
-                    onPressed: () =>
-                        Navigator.restorablePushNamed(context, '/settings'),
-                    child: const Text('Buka Settings'),
-                  ),
-                ],
+                    const PopupMenuItem<String>(
+                      value: 'settings',
+                      child: Text('Pengaturan API', style: TextStyle(color: Colors.white)),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'logout',
+                      child: Text('Logout', style: TextStyle(color: Colors.redAccent)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(LucideIcons.alertCircle,
+                        color: Colors.redAccent, size: 48),
+                    const SizedBox(height: 16),
+                    Text(err.toString(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.redAccent)),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F172A), // slate-900
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () =>
+                          ref.read(tuyaStatusProvider.notifier).refresh(),
+                      child: const Text('Refresh'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -288,7 +366,7 @@ class DashboardView extends ConsumerWidget {
                     ref.read(chargingSessionProvider.notifier);
 
                 if (!isCharging) {
-                  _showPreChargeDialog(context, ref, ref.read(chargingSessionProvider));
+                  final settingsState = ref.read(settingsProvider); final activeVehicle = ref.read(activeVehicleProvider); _showPreChargeDialog(context, ref, ref.read(chargingSessionProvider), settingsState, activeVehicle);
                 } else {
                   notifier.toggleRelay(false);
                   sessionNotifier.stopSession();
@@ -308,7 +386,7 @@ class DashboardView extends ConsumerWidget {
     );
   }
 
-  void _showPreChargeDialog(BuildContext context, WidgetRef ref, ChargingSessionState sessionState) {
+  void _showPreChargeDialog(BuildContext context, WidgetRef ref, ChargingMetricsState sessionState, SettingsState settingsState, Vehicle? activeVehicle) {
     final batController = TextEditingController(text: sessionState.persenAwal.toStringAsFixed(0));
     final hController = TextEditingController(text: '0');
     final mController = TextEditingController(text: '0');
@@ -389,20 +467,19 @@ class DashboardView extends ConsumerWidget {
                     final sessionNotifier = ref.read(chargingSessionProvider.notifier);
                     final tuyaNotifier = ref.read(tuyaStatusProvider.notifier);
 
-                    sessionNotifier.updatePersenAwal(bat).then((_) {
-                      if (!context.mounted) return;
+                    sessionNotifier.updatePersenAwalLocal(bat);
+                    if (!context.mounted) return;
 
-                      if (totalSeconds > 0) {
-                        tuyaNotifier.setCountdown(totalSeconds);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                    if (totalSeconds > 0) {
+                      tuyaNotifier.setCountdown(totalSeconds);
+                      ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('Timer diatur: $h j, $m m, $s d')),
                         );
                       } else {
                         tuyaNotifier.toggleRelay(true);
-                        sessionNotifier.startSession();
+                        sessionNotifier.startSession(vehicleId: activeVehicle?.id ?? "", persenAwal: sessionState.persenAwal, persenTarget: sessionState.persenTarget, batteryVolt: settingsState.batteryVolt, batteryAh: settingsState.batteryAh, efisiensiCharger: settingsState.efisiensiCharger);
                       }
                       Navigator.pop(context);
-                    });
                   },
                   child: const Text('Mulai Sekarang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
@@ -437,7 +514,7 @@ class DashboardView extends ConsumerWidget {
   }
 
   Widget _buildSummarySection(
-      ChargingMetrics metrics, double accumulatedEnergyKWh, ChargingSessionState sessionState, SettingsState settingsState) {
+      ChargingMetricsState metrics, double accumulatedEnergyKWh, ChargingMetricsState sessionState, SettingsState settingsState) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -476,7 +553,7 @@ class DashboardView extends ConsumerWidget {
                   child: _buildSummaryItem(
                       LucideIcons.batteryCharging,
                       'Energi Masuk',
-                      '${(sessionState.accumulatedEnergyKWh * settingsState.efisiensiCharger).toStringAsFixed(3)} kWh')),
+                      '${(sessionState.accumulatedEnergyWh / 1000 * settingsState.efisiensiCharger).toStringAsFixed(3)} kWh')),
             ],
           ),
           const SizedBox(height: 24),
@@ -542,7 +619,7 @@ class DashboardView extends ConsumerWidget {
   }
 
   Widget _buildPowerFlowSection(
-      bool isCharging, double voltage, double current, double power, double usedEfficiency, ChargingMetrics metrics) {
+      bool isCharging, double voltage, double current, double power, double usedEfficiency, ChargingMetricsState metrics) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -786,7 +863,7 @@ class DashboardView extends ConsumerWidget {
   }
 
   Widget _buildControlsSection(BuildContext context, WidgetRef ref,
-      ChargingSessionState sessionState, SettingsState settingsState) {
+      ChargingMetricsState sessionState, SettingsState settingsState) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -849,7 +926,7 @@ class DashboardView extends ConsumerWidget {
                   sessionState.persenTarget.toStringAsFixed(0),
                   (val) => ref
                       .read(chargingSessionProvider.notifier)
-                      .updatePersenTarget(double.parse(val)))),
+                      .updatePersenTargetLocal(double.parse(val)))),
           const SizedBox(height: 16),
           if (!settingsState.useRealtime) ...[
             Row(
@@ -902,7 +979,7 @@ class DashboardView extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: () =>
-                      ref.read(chargingSessionProvider.notifier).resetSession(),
+                      ref.read(chargingSessionProvider.notifier).stopSession(),
                   icon: const Icon(LucideIcons.refreshCcw,
                       color: Color(0xFFCBD5E1), size: 14), // slate-300
                   label: const Text('Reset Sesi',

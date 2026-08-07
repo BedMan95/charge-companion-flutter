@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../api/tuya_api.dart';
 import '../providers/settings_provider.dart';
+import '../api/api_client.dart';
+import 'login_view.dart';
 
 class SettingsView extends ConsumerStatefulWidget {
   const SettingsView({super.key});
@@ -77,6 +79,17 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
         backgroundColor: const Color(0xFF020617),
         elevation: 0,
         title: const Text('Pengaturan', style: TextStyle(color: Colors.white)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.redAccent),
+            onPressed: () async {
+              await ApiClient.logout();
+              if (context.mounted) {
+                Navigator.pushReplacementNamed(context, LoginView.routeName);
+              }
+            },
+          ),
+        ],
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: ListView(

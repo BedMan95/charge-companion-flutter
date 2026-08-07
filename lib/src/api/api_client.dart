@@ -2,8 +2,22 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiClient {
-  static const String baseUrl = 'http://127.0.0.1:8787'; // TODO: Update to production URL
+  static String baseUrl = 'http://127.0.0.1:8787';
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
+
+  static Future<void> loadBaseUrl() async {
+    final url = await _storage.read(key: 'api_base_url');
+    if (url != null && url.isNotEmpty) {
+      baseUrl = url;
+      _dio.options.baseUrl = url;
+    }
+  }
+
+  static Future<void> updateBaseUrl(String url) async {
+    baseUrl = url;
+    _dio.options.baseUrl = url;
+    await _storage.write(key: 'api_base_url', value: url);
+  }
 
   static final Dio _dio = Dio(BaseOptions(
     baseUrl: baseUrl,
