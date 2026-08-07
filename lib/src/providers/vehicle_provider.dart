@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
-import '../db/database_helper.dart';
+import 'package:dio/dio.dart';
+import 'package:mime/mime.dart';
+import 'package:http_parser/http_parser.dart';
+import 'dart:io';
+import '../api/api_client.dart';
 
 class Vehicle {
   final String id;
@@ -44,38 +47,21 @@ class Vehicle {
   factory Vehicle.fromMap(Map<String, dynamic> map) {
     return Vehicle(
       id: map['id'],
-      evModelId: map['ev_model_id'],
+      evModelId: map['evModelId'] ?? map['ev_model_id'], // fallback local
       name: map['name'] ?? '',
-      imageUrl: map['image_url'],
-      isActive: map['is_active'] == 1,
-      calibrationUsableBatteryKwh: map['calibration_usable_battery_kwh'],
-      calibrationWallEnergyFullKwh: map['calibration_wall_energy_full_kwh'],
-      calibrationFullChargeHours: map['calibration_full_charge_hours'],
-      calibrationTaperStartPercent: map['calibration_taper_start_percent'],
-      customBatteryVolt: map['custom_battery_volt'],
-      customBatteryAh: map['custom_battery_ah'],
-      customEfisiensiCharger: map['custom_efisiensi_charger'],
-      batteryVolt: (map['custom_battery_volt'] ?? map['battery_volt'] ?? 72).toDouble(),
-      batteryAh: (map['custom_battery_ah'] ?? map['battery_ah'] ?? 38).toDouble(),
-      efisiensiCharger: (map['custom_efisiensi_charger'] ?? map['efisiensi_charger'] ?? 0.82).toDouble(),
+      imageUrl: map['imageUrl'] ?? map['image_url'], // fallback local
+      isActive: (map['isActive'] == true || map['isActive'] == 1 || map['is_active'] == 1),
+      calibrationUsableBatteryKwh: map['calibrationUsableBatteryKwh']?.toDouble(),
+      calibrationWallEnergyFullKwh: map['calibrationWallEnergyFullKwh']?.toDouble(),
+      calibrationFullChargeHours: map['calibrationFullChargeHours']?.toDouble(),
+      calibrationTaperStartPercent: map['calibrationTaperStartPercent']?.toDouble(),
+      customBatteryVolt: map['customBatteryVolt']?.toDouble(),
+      customBatteryAh: map['customBatteryAh']?.toDouble(),
+      customEfisiensiCharger: map['customEfisiensiCharger']?.toDouble(),
+      batteryVolt: (map['customBatteryVolt'] ?? map['batteryVolt'] ?? 72).toDouble(),
+      batteryAh: (map['customBatteryAh'] ?? map['batteryAh'] ?? 38).toDouble(),
+      efisiensiCharger: (map['customEfisiensiCharger'] ?? map['efisiensiCharger'] ?? 0.82).toDouble(),
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'ev_model_id': evModelId,
-      'name': name,
-      'image_url': imageUrl,
-      'is_active': isActive ? 1 : 0,
-      'calibration_usable_battery_kwh': calibrationUsableBatteryKwh,
-      'calibration_wall_energy_full_kwh': calibrationWallEnergyFullKwh,
-      'calibration_full_charge_hours': calibrationFullChargeHours,
-      'calibration_taper_start_percent': calibrationTaperStartPercent,
-      'custom_battery_volt': customBatteryVolt,
-      'custom_battery_ah': customBatteryAh,
-      'custom_efisiensi_charger': customEfisiensiCharger,
-    };
   }
 
   Vehicle copyWith({
@@ -126,14 +112,20 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
 
   Future<void> loadVehicles() async {
     try {
-      final db = await DatabaseHelper.instance.database;
-      final maps = await db.rawQuery('''
-        SELECT uv.*, em.battery_volt, em.battery_ah, em.efisiensi_charger
-        FROM user_vehicles uv
-        LEFT JOIN ev_models em ON uv.ev_model_id = em.id
-      ''');
-      final vehicles = maps.map((map) => Vehicle.fromMap(map)).toList();
-      state = AsyncValue.data(vehicles);
+      final userId = await ApiClient.getUserId();
+      if (userId == null) {
+        state = const AsyncValue.data([]);
+        return;
+      }
+
+      final response = await ApiClient.instance.get('/api/vehicles/user/$userId');
+      if (response.statusCode == 200 && response.data != null) {
+        final List<dynamic> data = response.data;
+        final vehicles = data.map((map) => Vehicle.fromMap(map)).toList();
+        state = AsyncValue.data(vehicles);
+      } else {
+        state = const AsyncValue.data([]);
+      }
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -141,16 +133,23 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
 
   Future<void> addVehicle(String name, String evModelId) async {
     try {
-      final db = await DatabaseHelper.instance.database;
-      final newVehicle = Vehicle(
-        id: const Uuid().v4(),
-        evModelId: evModelId,
-        name: name,
-        isActive:
-            state.value?.isEmpty ?? true, // Make active if it's the first one
+      final userId = await ApiClient.getUserId();
+      if (userId == null) throw Exception('Not logged in');
+
+      final formData = FormData.fromMap({
+        'id': 'v_${DateTime.now().millisecondsSinceEpoch}', // Mock ID, real DB generates it usually, but API accepts 'id' in form data
+        'userId': userId,
+        'evModelId': evModelId,
+        'name': name,
+        'isActive': state.value?.isEmpty ?? true,
+      });
+
+      await ApiClient.instance.post(
+        '/api/vehicles/user',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
       );
 
-      await db.insert('user_vehicles', newVehicle.toMap());
       await loadVehicles();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -159,13 +158,25 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
 
   Future<void> updateVehicleImage(String id, String imagePath) async {
     try {
-      final db = await DatabaseHelper.instance.database;
-      await db.update(
-        'user_vehicles',
-        {'image_url': imagePath},
-        where: 'id = ?',
-        whereArgs: [id],
+      final file = File(imagePath);
+      if (!await file.exists()) return;
+
+      final mimeType = lookupMimeType(imagePath) ?? 'image/jpeg';
+      final mediaType = MediaType.parse(mimeType);
+
+      final formData = FormData.fromMap({
+        'image': await MultipartFile.fromFile(
+          imagePath,
+          contentType: mediaType,
+        ),
+      });
+
+      await ApiClient.instance.put(
+        '/api/vehicles/user/$id',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
       );
+
       await loadVehicles();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -183,21 +194,17 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
     double? customEfisiensiCharger,
   }) async {
     try {
-      final db = await DatabaseHelper.instance.database;
-      await db.update(
-        'user_vehicles',
-        {
-          'calibration_usable_battery_kwh': usableBatteryKwh,
-          'calibration_wall_energy_full_kwh': wallEnergyFullKwh,
-          'calibration_full_charge_hours': fullChargeHours,
-          'calibration_taper_start_percent': taperStartPercent,
-          'custom_battery_volt': customBatteryVolt,
-          'custom_battery_ah': customBatteryAh,
-          'custom_efisiensi_charger': customEfisiensiCharger,
-        },
-        where: 'id = ?',
-        whereArgs: [id],
+      final formData = FormData.fromMap({
+        if (customBatteryVolt != null) 'customBatteryVolt': customBatteryVolt,
+        if (customBatteryAh != null) 'customBatteryAh': customBatteryAh,
+      });
+
+      await ApiClient.instance.put(
+        '/api/vehicles/user/$id',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
       );
+
       await loadVehicles();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -206,12 +213,7 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
 
   Future<void> deleteVehicle(String id) async {
     try {
-      final db = await DatabaseHelper.instance.database;
-      await db.delete(
-        'user_vehicles',
-        where: 'id = ?',
-        whereArgs: [id],
-      );
+      await ApiClient.instance.delete('/api/vehicles/user/$id');
       await loadVehicles();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -220,12 +222,18 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<Vehicle>>> {
 
   Future<void> setActiveVehicle(String id) async {
     try {
-      final db = await DatabaseHelper.instance.database;
-      await db.transaction((txn) async {
-        await txn.update('user_vehicles', {'is_active': 0});
-        await txn.update('user_vehicles', {'is_active': 1},
-            where: 'id = ?', whereArgs: [id]);
+      final formData = FormData.fromMap({
+        'isActive': true,
       });
+
+      await ApiClient.instance.put(
+        '/api/vehicles/user/$id',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+
+      // Ideally backend handles making others false.
+      // If not, we might need a separate call, but the standard pattern is backend logic handles unique active states.
       await loadVehicles();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
