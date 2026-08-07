@@ -195,7 +195,7 @@ void onStart(ServiceInstance service) async {
               // 4 consecutive reads at 30s interval = 2 minutes
               final isTrickleFinished = lowPowerCount >= 4;
 
-              if (newPersen >= target || isTrickleFinished) {
+              if (newPersen >= target && isTrickleFinished) {
                 // Charge Complete!
                 await TuyaApi.sendCommand([{'code': 'switch_1', 'value': false}]);
                 await prefs.remove('startTimeMs');
