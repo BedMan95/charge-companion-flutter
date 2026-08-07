@@ -17,6 +17,7 @@ class _LoginViewState extends State<LoginView> {
   final _passwordController = TextEditingController();
   final _hostController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -28,6 +29,7 @@ class _LoginViewState extends State<LoginView> {
     final url = _hostController.text.trim();
     if (url.isNotEmpty) {
       await ApiClient.updateBaseUrl(url);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Host updated'), backgroundColor: Colors.green),
       );
@@ -36,34 +38,76 @@ class _LoginViewState extends State<LoginView> {
   }
 
   void _showSettingsDialog() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0F172A),
-        title: const Text('Backend Host', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: _hostController,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            labelText: 'Base URL',
-            hintText: 'http://127.0.0.1:8787',
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F172A),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF334155),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Text('Backend Host',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
+              TextField(
+                controller: _hostController,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                keyboardType: TextInputType.url,
+                decoration: _inputDecoration('Base URL', LucideIcons.server),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _updateHost,
+                  child: const Text('Simpan',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: _updateHost,
-            child: const Text('Simpan', style: TextStyle(color: Color(0xFF10B981))),
-          ),
-        ],
       ),
     );
   }
 
   Future<void> _login() async {
+    if (_emailController.text.trim().isEmpty ||
+        _passwordController.text.isEmpty) {
+      _showError('Email dan password wajib diisi');
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       final response = await ApiClient.instance.post('/api/auth/login', data: {
@@ -90,6 +134,29 @@ class _LoginViewState extends State<LoginView> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
+      prefixIcon: Icon(icon, color: const Color(0xFF94A3B8)),
+      filled: true,
+      fillColor: const Color(0xFF1E293B),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      enabledBorder: const OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+        borderSide: BorderSide(color: Color(0xFF334155)),
+      ),
+      focusedBorder: const OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+        borderSide: BorderSide(color: Color(0xFF10B981), width: 1.5),
+      ),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    );
   }
 
   void _showError(String message) {
@@ -132,30 +199,32 @@ class _LoginViewState extends State<LoginView> {
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Login ke Backend',
-                  style: TextStyle(color: Color(0xFF94A3B8)),
-                ),
                 const SizedBox(height: 48),
                 TextField(
                   controller: _emailController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(LucideIcons.mail, color: Color(0xFF94A3B8)),
-                  ),
                   keyboardType: TextInputType.emailAddress,
+                  autofocus: true,
+                  textInputAction: TextInputAction.next,
+                  decoration: _inputDecoration('Email', LucideIcons.mail),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _passwordController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: Icon(LucideIcons.lock, color: Color(0xFF94A3B8)),
+                  obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _login(),
+                  decoration: _inputDecoration('Password', LucideIcons.lock).copyWith(
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? LucideIcons.eye : LucideIcons.eyeOff,
+                        color: const Color(0xFF64748B),
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                    ),
                   ),
-                  obscureText: true,
                 ),
                 const SizedBox(height: 32),
                 SizedBox(
